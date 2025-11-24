@@ -121,14 +121,18 @@ class BetterIOPlugin(Star):
             message_id = event.message_obj.message_id
             if not message_id:
                 return
-            # 按概率@发送者
-            if random.random() < self.conf["at_prob"] and At(qq=sender_id) not in chain:
-                chain.insert(0, At(qq=sender_id))
             # 按概率引用回复
-            elif (
-                random.random() < self.conf["reply_prob"]
+            if random.random() < self.conf["reply_prob"] and not any(
+                isinstance(item, Reply) for item in chain
+            ):
+                chain.insert(0, At(qq=sender_id))
+            # 按概率@发送者
+            if (
+                random.random() < self.conf["at_prob"]
                 and isinstance(end_seg, Plain)
                 and end_seg.text.strip()
+                and not any(isinstance(item, At) for item in chain)
+                and not end_seg.text.startswith("@")
             ):
                 if self.conf["enable_at_str"]:
                     send_name = event.get_sender_name()
