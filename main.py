@@ -67,7 +67,7 @@ class BetterIOPlugin(Star):
 
         # 拦截重复消息
         msg = result.get_plain_text()
-        if msg in g.bot_msgs:
+        if msg and msg in g.bot_msgs:
             event.set_result(event.plain_result(""))
             logger.info(f"已阻止发送重复消息：{msg}")
             return
