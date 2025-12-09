@@ -65,14 +65,14 @@ class BetterIOPlugin(Star):
 
         # 拦截重复消息
         msg = result.get_plain_text()
-        if msg and msg in g.bot_msgs:
+        iconf = self.conf["intercept"]
+        if iconf["reread_block"] and msg and msg in g.bot_msgs:
             event.set_result(event.plain_result(""))
             logger.info(f"已阻止发送重复消息：{msg}")
             return
         g.bot_msgs.append(msg)
 
         # 拦截错误信息(管理员触发的则不拦截)
-        iconf = self.conf["intercept"]
         if iconf["block_error"] and not event.is_admin():
             for word in iconf["error_words"]:
                 if word in msg:
