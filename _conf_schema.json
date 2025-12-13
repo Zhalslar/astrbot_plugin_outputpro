@@ -1,22 +1,16 @@
 {
-    "intercept": {
-        "description": "拦截模块配置",
+    "error": {
+        "description": "拦截报错配置",
         "type": "object",
-        "hint": "",
+        "hint": "第一步：全局拦截报错",
         "items": {
-            "reread_block": {
-                "description": "拦截复读消息",
-                "type": "bool",
-                "hint": "打开后，若Bot当前要发送的消息和前5次发送的消息有重复的，则被拦截",
-                "default": true
-            },
             "block_error": {
                 "description": "拦截报错",
                 "type": "bool",
                 "hint": "打开后，若Bot将要发送的消息是报错消息，则被拦截（但bot管理员触发的不拦截，方便排查）",
                 "default": true
             },
-            "error_words": {
+            "keywords": {
                 "description": "报错拦截所用关键词",
                 "hint": "Bot发的消息中，包含列表中任一关键字时，消息将被拦截",
                 "type": "list",
@@ -24,16 +18,35 @@
                     "请求失败",
                     "出现异常"
                 ]
-            },
-            "block_ai": {
-                "description": "人机拦截",
+            }
+        }
+    },
+    "only_llm_result": {
+        "description": "只处理LLM结果",
+        "type": "bool",
+        "hint": "第二步：只处理 LLM返回的消息。建议打开",
+        "default": true
+    },
+    "toobot": {
+        "description": "人机拦截配置",
+        "type": "object",
+        "hint": "第三步：拦截人机发言",
+        "items": {
+            "block_reread": {
+                "description": "拦截人机复读式发言",
                 "type": "bool",
-                "hint": "打开后，若Bot将要发送的消息太过于人机，则被拦截",
+                "hint": "打开后，若Bot当前要发送的消息和前5次发送的消息有重复的，则被拦截",
                 "default": true
             },
-            "ai_words": {
-                "description": "人机拦截所用关键词",
-                "hint": "Bot发的消息中，包含列表中任一关键字时，消息将被拦截",
+            "block_ai": {
+                "description": "拦截太人机的发言",
+                "type": "bool",
+                "hint": "打开后，根据关键词检测bot的发言是否太过于人机",
+                "default": true
+            },
+            "keywords": {
+                "description": "拦截人机所用关键词",
+                "hint": "Bot发的消息中，包含列表中任一关键字时，判定为过于人机，消息将被拦截",
                 "type": "list",
                 "default": [
                     "抱歉",
@@ -70,10 +83,16 @@
             }
         }
     },
+    "parser_at": {
+        "description": "解析假艾特",
+        "type": "bool",
+        "hint": "第四步：将消息中字符串式的假艾特转换成真艾特，包括：@username @id [at:username] [at:id] ,且忽略中英文和大小写",
+        "default": true
+    },
     "clean": {
         "description": "文本清理配置",
         "type": "object",
-        "hint": "",
+        "hint": "第四步：清理文本。注意清洗顺序：中括号内容 -> 小括号内容 -> 情绪标签 -> emoji -> 句首字符 -> 句尾字符 -> 整体清洗特殊符号",
         "items": {
             "text_threshold": {
                 "description": "文本清理长度阈值",
@@ -81,15 +100,21 @@
                 "hint": "多少个字符以下时执行文本清理，可以防止对长文本误清理",
                 "default": 150
             },
-            "format_at": {
-                "description": "摘掉括号式At",
-                "hint": "些模型喜欢开头附加 [At:xxx] 或 [At：xxx], Deepseek模型抽风时经常出现。",
+            "bracket": {
+                "description": "摘除中括号内容",
+                "hint": "即摘除消息中的 [...] ",
                 "type": "bool",
                 "default": true
             },
-            "fake_at": {
-                "description": "摘掉假@",
-                "hint": "一些模型喜欢发假@，即字符串式的“@昵称”",
+            "parenthesis": {
+                "description": "摘除小括号内容",
+                "hint": "即摘除消息中的 (...) 支持半角和全角括号",
+                "type": "bool",
+                "default": true
+            },
+            "emotion_tag": {
+                "description": "摘除情绪标签",
+                "hint": "即摘除消息中的 &&...&&",
                 "type": "bool",
                 "default": true
             },
@@ -101,7 +126,7 @@
             },
             "lead": {
                 "type": "list",
-                "description": "去除指定句首字符",
+                "description": "去除句首字符",
                 "hint": "对某些喜欢输出前缀的模型有奇效，注意只去除句首字符",
                 "default": [
                     "print",
@@ -111,7 +136,7 @@
             },
             "tail": {
                 "type": "list",
-                "description": "去除指定句尾字符",
+                "description": "去除句尾字符",
                 "hint": "对某些喜欢输出句号的模型有奇效，注意只去除句尾字符",
                 "default": [
                     "。",
@@ -126,29 +151,16 @@
             }
         }
     },
-    "reat": {
-        "description": "引用与@配置",
-        "type": "object",
-        "hint": "",
-        "items": {
-            "reply_switch": {
-                "description": "引用回复",
-                "type": "bool",
-                "hint": "当bot要回复的消息不是群里的最新消息时（被顶上去了），引用要回复的消息。 请提前关闭Astrbot自动的Reply功能",
-                "default": true
-            },
-            "at_prob": {
-                "description": "@发送者概率",
-                "type": "float",
-                "hint": "当消息中包含文本时，按概率@发送者。请提前关闭Astrbot自动的At功能",
-                "default": 0.001
-            },
-            "str_at": {
-                "description": "换用字符串@发送者",
-                "type": "bool",
-                "hint": "Astrbot在拼接At与Plain组件时，中间的空格会消失，不介意的话可以换用字符串At来解决此问题",
-                "default": true
-            }
-        }
+    "at_prob": {
+        "description": "艾特概率",
+        "type": "float",
+        "hint": "第五步：按概率艾特别人（仅aiocqhttp平台）。概率小于此值 → 必须带 @；概率大于此值 → 必须不带 @。设为 0 则关闭此功能。请提前关闭Astrbot自动的At功能",
+        "default": 0.005
+    },
+    "smart_reply": {
+        "description": "智能引用",
+        "type": "bool",
+        "hint": "第六步：智能地引用消息（仅aiocqhttp平台）。当bot要回复的消息不是群里的最新消息时（被顶上去了），引用要回复的消息。 请提前关闭Astrbot自动的Reply功能",
+        "default": true
     }
 }
