@@ -202,5 +202,8 @@ class BetterIOPlugin(Star):
                 if tail:
                     chain.insert(idx + 3, Plain(tail))
                 # 更新引用，继续处理剩余尾巴
-                seg = chain[idx + 2]
-                text = tail
+                if tail:
+                    seg = chain[idx + 3]
+                    text = tail
+                else:
+                    break
