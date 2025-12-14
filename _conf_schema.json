@@ -4,20 +4,25 @@
         "type": "object",
         "hint": "第一步：全局拦截报错",
         "items": {
-            "block_error": {
-                "description": "拦截报错",
-                "type": "bool",
-                "hint": "打开后，若Bot将要发送的消息是报错消息，则被拦截（但bot管理员触发的不拦截，方便排查）",
-                "default": true
-            },
             "keywords": {
-                "description": "报错拦截所用关键词",
+                "description": "检测报错所用关键词",
                 "hint": "Bot发的消息中，包含列表中任一关键字时，消息将被拦截",
                 "type": "list",
                 "default": [
                     "请求失败",
                     "出现异常"
                 ]
+            },
+            "mode": {
+                "description": "报错处理模式",
+                "hint": "block:拦截报错;    forward:转发报错给管理员;    ignore:不处理",
+                "type": "string",
+                "options": [
+                    "block",
+                    "forward",
+                    "ignore"
+                ],
+                "default": "forward"
             }
         }
     },
