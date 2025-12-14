@@ -16,7 +16,7 @@
             "mode": {
                 "description": "报错处理模式",
                 "hint": "block:拦截报错;    forward:转发报错给管理员;    ignore:不处理",
-                "type": "bool",
+                "type": "string",
                 "options": [
                     "block",
                     "forward",
