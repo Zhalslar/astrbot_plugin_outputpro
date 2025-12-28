@@ -16,6 +16,7 @@ from astrbot.core.message.components import (
     Node,
     Nodes,
     Plain,
+    Record,
     Reply,
 )
 from astrbot.core.message.message_event_result import MessageChain
@@ -55,6 +56,7 @@ class OutputPlugin(Star):
         if self.conf["t2i"]["enable"]:
             try:
                 import pillowmd
+
                 style_path = Path(self.conf["t2i"]["pillowmd_style_dir"]).resolve()
                 self.style = pillowmd.LoadMarkdownStyles(style_path)
             except ImportError as e:
@@ -178,7 +180,6 @@ class OutputPlugin(Star):
         allow_llm_logic = not self.conf["only_llm_result"] or result.is_llm_result()
 
         if allow_llm_logic:
-
             tconf = self.conf["toobot"]
             # 拦截重复消息
             if tconf["block_reread"] and msg in g.bot_msgs:
@@ -229,6 +230,24 @@ class OutputPlugin(Star):
                     # 整体清洗标点符号
                     if cconf["punctuation"]:
                         seg.text = re.sub(cconf["punctuation"], "", seg.text)
+
+            # TTS
+            if (
+                isinstance(event, AiocqhttpMessageEvent)
+                and self.conf["tts"]["enable"]
+                and self.conf["tts"]["group_id"]
+                and len(chain) == 1
+                and isinstance(chain[0], Plain)
+                and 0 < len(chain[0].text) < self.conf["tts"]["threshold"]
+                and random.random() < self.conf["tts"]["prob"]
+            ):
+                character_id = self.conf["tts"]["character"].split("（", 1)[1][:-1]
+                audio_path = await event.bot.get_ai_record(
+                    character=character_id,
+                    group_id=int(self.conf["tts"]["group_id"]),
+                    text=chain[0].text,
+                )
+                chain[:] = [Record.fromURL(audio_path)]
 
             # 智能引用
             if (

@@ -2,6 +2,6 @@ name: astrbot_plugin_outputpro
 display_name: 输出增强
 desc: 输出增强插件：图片外显、报错拦截、文本清洗、智能艾特、智能引用、撤回机制
 help: 略
-version: v1.1.4
+version: v1.1.5
 author: Zhalslar
 repo: https://github.com/Zhalslar/astrbot_plugin_outputpro

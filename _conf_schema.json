@@ -209,9 +209,80 @@
             }
         }
     },
+    "tts": {
+        "description": "TTS配置",
+        "type": "object",
+        "hint": "第七步：将消息转为语音。（仅aiocqhttp平台可用）",
+        "items": {
+            "enable": {
+                "description": "开启TTS",
+                "hint": "本插件基于QQ声聊实现TTS, 无需部署, 无需密钥。 开启前, 请先关闭Astrbot自带的TTS功能",
+                "type": "bool",
+                "default": false
+            },
+            "group_id": {
+                "description": "中转群群号",
+                "hint": "必填！ 生成AI语音时, 用中转群中转一次后，可以避免显示AI语音，不填表示不中转",
+                "type": "string",
+                "default": ""
+            },
+            "character": {
+                "description": "默认使用的AI语音角色",
+                "hint": "将文本转为AI语音时使用",
+                "type": "string",
+                "options": [
+                    "小新（lucy-voice-laibixiaoxin）",
+                    "猴哥（lucy-voice-houge）",
+                    "四郎（lucy-voice-silang）",
+                    "东北老妹儿（lucy-voice-guangdong-f1）",
+                    "广西大表哥（lucy-voice-guangxi-m1）",
+                    "妲己（lucy-voice-daji）",
+                    "霸道总裁（lucy-voice-lizeyan）",
+                    "酥心御姐（lucy-voice-suxinjiejie）",
+                    "说书先生（lucy-voice-m8）",
+                    "憨憨小弟（lucy-voice-male1）",
+                    "憨厚老哥（lucy-voice-male3）",
+                    "吕布（lucy-voice-lvbu）",
+                    "元气少女（lucy-voice-xueling）",
+                    "文艺少女（lucy-voice-f37）",
+                    "磁性大叔（lucy-voice-male2）",
+                    "邻家小妹（lucy-voice-female1）",
+                    "低沉男声（lucy-voice-m14）",
+                    "傲娇少女（lucy-voice-f38）",
+                    "爹系男友（lucy-voice-m101）",
+                    "暖心姐姐（lucy-voice-female2）",
+                    "温柔妹妹（lucy-voice-f36）",
+                    "书香少女（lucy-voice-f34）"
+                ],
+                "default": "温柔妹妹（lucy-voice-f36）"
+            },
+            "threshold": {
+                "description": "文本长度阈值",
+                "hint": "超过此长度的文本不会被转成语音发送",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 300,
+                    "step": 10
+                },
+                "default": 50
+            },
+            "prob": {
+                "description": "触发tts的概率",
+                "hint": "",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.1
+            }
+        }
+    },
     "reply_threshold": {
         "description": "引用阈值",
-        "hint": "第七步：智能地引用消息。当bot要回复的消息被其他人插嘴了几条时，则引用要回复的消息。 设为 0 表示关闭引用功能, 请提前关闭Astrbot自动的Reply功能",
+        "hint": "第八步：智能地引用消息。当bot要回复的消息被其他人插嘴了几条时，则引用要回复的消息。 设为 0 表示关闭引用功能, 请提前关闭Astrbot自动的Reply功能",
         "type": "int",
         "slider": {
             "min": 0,
@@ -223,11 +294,11 @@
     "t2i": {
         "description": "文转图配置",
         "type": "object",
-        "hint": "第八步：将长文本转为图片",
+        "hint": "第九步：将长文本转为图片",
         "items": {
             "enable": {
                 "description": "开启长文本转图",
-                "hint": "插件使用 pillowmd 渲染长文本，轻量易用又稳定。如果可以, 开启此功能前, 请先关闭Astrbot的自带的长文本转图功能",
+                "hint": "本插件使用 pillowmd 渲染长文本，轻量易用又稳定。如果可以, 开启此功能前, 请先关闭Astrbot的自带的长文本转图功能",
                 "type": "bool",
                 "default": true
             },
@@ -262,14 +333,14 @@
             }
         }
     },
-    "forward":{
+    "forward": {
         "description": "转发配置",
-        "hint": "第九步：将长文本合并转发（仅aiocqhttp平台可用）",
+        "hint": "第十步：将长文本合并转发（仅aiocqhttp平台可用）",
         "type": "object",
         "items": {
             "enable": {
                 "description": "开启自动转发",
-                "hint":"如果可以, 开启此功能前, 请先关闭Astrbot的自带的转发功能",
+                "hint": "如果可以, 开启此功能前, 请先关闭Astrbot的自带的转发功能",
                 "type": "bool",
                 "default": true
             },
@@ -294,7 +365,7 @@
     },
     "recall": {
         "description": "撤回配置",
-        "hint": "第十步：检测发出的消息是否需要撤回，并执行撤回操作（仅aiocqhttp平台可用）。注意: 被判定为需要撤回的消息，将不会执行Astrbot自带的文转图、文转语音、合并转发、分段回复",
+        "hint": "第十一步：检测发出的消息是否需要撤回，并执行撤回操作（仅aiocqhttp平台可用）。注意: 被判定为需要撤回的消息，将不会执行Astrbot自带的文转图、文转语音、合并转发、分段回复",
         "type": "object",
         "items": {
             "enable": {
