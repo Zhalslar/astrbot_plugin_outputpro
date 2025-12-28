@@ -238,7 +238,7 @@ class OutputPlugin(Star):
                 and self.conf["tts"]["group_id"]
                 and len(chain) == 1
                 and isinstance(chain[0], Plain)
-                and 0 < len(chain[0].text) < self.conf["tts"]["threshold"]
+                and len(chain[0].text) < self.conf["tts"]["threshold"]
                 and random.random() < self.conf["tts"]["prob"]
             ):
                 character_id = self.conf["tts"]["character"].split("（", 1)[1][:-1]
