@@ -47,7 +47,6 @@ class OutputPlugin(Star):
     async def _ensure_node_name(self, event: AstrMessageEvent) -> str:
         """确保转发节点昵称不为空"""
         fconf = self.conf["forward"]
-        print(fconf)
         if fconf.get("node_name"):
             return fconf["node_name"]
 
