@@ -1,5 +1,7 @@
 import random
 import re
+import shutil
+from pathlib import Path
 
 import emoji
 
@@ -21,6 +23,7 @@ from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
+from astrbot.core.star.star_tools import StarTools
 
 from .core.at_policy import AtPolicy
 from .core.recall import Recaller
@@ -31,18 +34,51 @@ class OutputPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.conf = config
+
+        self.data_dir = StarTools.get_data_dir("astrbot_plugin_outputpro")
+        self.image_cache_dir = self.data_dir / "image_cache"
+        self.image_cache_dir.mkdir(parents=True, exist_ok=True)
+
         # bot管理员(仅取第一位)
         admins_id: list[str] = context.get_config().get("admins_id", [])
         self.admin_id: str | None = admins_id[0] if admins_id else None
 
         self.at_policy = AtPolicy(self.conf)
 
+        self.style = None
+
     # ================= 生命周期 ================
     async def initialize(self):
+        # 撤回器
         self.recaller = Recaller(self.conf)
+        # 渲染器
+        if self.conf["t2i"]["enable"]:
+            try:
+                import pillowmd
+                style_path = Path(self.conf["t2i"]["pillowmd_style_dir"]).resolve()
+                self.style = pillowmd.LoadMarkdownStyles(style_path)
+            except ImportError as e:
+                logger.error(
+                    f"无法加载 pillowmd：未安装 pillowmd 包。请先安装依赖，例如：pip install pillowmd : {e}"
+                )
+            except Exception as e:
+                logger.error(f"无法加载 pillowmd 样式：{e}")
 
     async def terminate(self):
+        # 终止撤回器
         await self.recaller.terminate()
+        # 清空缓存目录
+        if (
+            self.conf["t2i"]["clean_cache"]
+            and self.image_cache_dir
+            and self.image_cache_dir.exists()
+        ):
+            try:
+                shutil.rmtree(self.image_cache_dir)
+                logger.debug(f"缓存已清空：{self.image_cache_dir}")
+            except Exception as e:
+                logger.error(f"清空缓存失败：{e}")
+            self.image_cache_dir.mkdir(parents=True, exist_ok=True)
 
     async def _ensure_node_name(self, event: AstrMessageEvent) -> str:
         """确保转发节点昵称不为空"""
@@ -135,74 +171,87 @@ class OutputPlugin(Star):
                         logger.info(f"已阻止发送报错提示：{msg}")
                         return
 
-        # 仅处理LLM消息
-        if self.conf["only_llm_result"] and not result.is_llm_result():
-            return
-
         gid: str = event.get_group_id()
         g: GroupState = StateManager.get_group(gid)
 
-        tconf = self.conf["toobot"]
-        # 拦截重复消息
-        if tconf["block_reread"] and msg in g.bot_msgs:
-            event.set_result(event.plain_result(""))
-            logger.info(f"已阻止LLM发送重复消息：{msg}")
-            return
-        g.bot_msgs.append(msg)
+        # 是否允许执行“LLM 专属逻辑”
+        allow_llm_logic = not self.conf["only_llm_result"] or result.is_llm_result()
 
-        # 拦截人机发言
-        if tconf["block_ai"]:
-            for word in tconf["keywords"]:
-                if word in msg:
-                    event.set_result(event.plain_result(""))
-                    logger.info(f"已阻止LLM过于人机的发言:{msg}")
-                    return
+        if allow_llm_logic:
 
-        # 解析 At 消息 + 概率At
-        if self.conf["parse_at"]["enable"]:
-            self.at_policy.handle(event, chain, g)
+            tconf = self.conf["toobot"]
+            # 拦截重复消息
+            if tconf["block_reread"] and msg in g.bot_msgs:
+                event.set_result(event.plain_result(""))
+                logger.info(f"已阻止LLM发送重复消息：{msg}")
+                return
+            if result.is_llm_result():
+                g.bot_msgs.append(msg)
 
-        # 清洗文本消息
-        cconf = self.conf["clean"]
-        for seg in chain:
-            if isinstance(seg, Plain) and len(seg.text) < cconf["text_threshold"]:
-                # 摘除中括号内容
-                if cconf["bracket"]:
-                    seg.text = re.sub(r"\[.*?\]", "", seg.text)
-                # 摘除小括号内容（半角/全角）
-                if cconf["parenthesis"]:
-                    seg.text = re.sub(r"[（(].*?[）)]", "", seg.text)
-                # 摘除情绪标签
-                if cconf["emotion_tag"]:
-                    seg.text = re.sub(r"&&.*?&&", "", seg.text)
-                # 清洗emoji
-                if cconf["emoji"]:
-                    seg.text = emoji.replace_emoji(seg.text, replace="")
-                # 去除指定开头字符
-                if cconf["lead"]:
-                    for remove_lead in cconf["lead"]:
-                        if seg.text.startswith(remove_lead):
-                            seg.text = seg.text[len(remove_lead) :]
-                # 去除指定结尾字符
-                if cconf["tail"]:
-                    for remove_tail in cconf["tail"]:
-                        if seg.text.endswith(remove_tail):
-                            seg.text = seg.text[: -len(remove_tail)]
-                # 整体清洗标点符号
-                if cconf["punctuation"]:
-                    seg.text = re.sub(cconf["punctuation"], "", seg.text)
+            # 拦截人机发言
+            if tconf["block_ai"]:
+                for word in tconf["keywords"]:
+                    if word in msg:
+                        event.set_result(event.plain_result(""))
+                        logger.info(f"已阻止LLM过于人机的发言:{msg}")
+                        return
 
-        # 智能引用
-        if (
-            all(isinstance(seg, Plain | Image | Face | At) for seg in chain)
-            and self.conf["reply_threshold"] > 0
-        ):
-            # 当前事件也会使 g.after_bot_count 加 1，这里用  -1 表示只统计之前的消息
-            if g.after_bot_count - 1 >= self.conf["reply_threshold"]:
-                chain.insert(0, Reply(id=event.message_obj.message_id))
-                logger.debug("已插入Reply组件")
-            # 重置计数器
-            g.after_bot_count = 0
+            # 解析 At 消息 + 概率At
+            if self.conf["parse_at"]["enable"]:
+                self.at_policy.handle(event, chain, g)
+
+            # 清洗文本消息
+            cconf = self.conf["clean"]
+            for seg in chain:
+                if isinstance(seg, Plain) and len(seg.text) < cconf["text_threshold"]:
+                    # 摘除中括号内容
+                    if cconf["bracket"]:
+                        seg.text = re.sub(r"\[.*?\]", "", seg.text)
+                    # 摘除小括号内容（半角/全角）
+                    if cconf["parenthesis"]:
+                        seg.text = re.sub(r"[（(].*?[）)]", "", seg.text)
+                    # 摘除情绪标签
+                    if cconf["emotion_tag"]:
+                        seg.text = re.sub(r"&&.*?&&", "", seg.text)
+                    # 清洗emoji
+                    if cconf["emoji"]:
+                        seg.text = emoji.replace_emoji(seg.text, replace="")
+                    # 去除指定开头字符
+                    if cconf["lead"]:
+                        for remove_lead in cconf["lead"]:
+                            if seg.text.startswith(remove_lead):
+                                seg.text = seg.text[len(remove_lead) :]
+                    # 去除指定结尾字符
+                    if cconf["tail"]:
+                        for remove_tail in cconf["tail"]:
+                            if seg.text.endswith(remove_tail):
+                                seg.text = seg.text[: -len(remove_tail)]
+                    # 整体清洗标点符号
+                    if cconf["punctuation"]:
+                        seg.text = re.sub(cconf["punctuation"], "", seg.text)
+
+            # 智能引用
+            if (
+                all(isinstance(seg, Plain | Image | Face | At) for seg in chain)
+                and self.conf["reply_threshold"] > 0
+            ):
+                # 当前事件也会使 g.after_bot_count 加 1，这里用  -1 表示只统计之前的消息
+                if g.after_bot_count - 1 >= self.conf["reply_threshold"]:
+                    chain.insert(0, Reply(id=event.message_obj.message_id))
+                    logger.debug("已插入Reply组件")
+                # 重置计数器
+                g.after_bot_count = 0
+
+        # 文转图
+        iconf = self.conf["t2i"]
+        if iconf["enable"] and isinstance(chain[-1], Plain) and self.style:
+            seg = chain[-1]
+            if len(seg.text) > iconf["threshold"]:
+                img = await self.style.AioRender(
+                    text=seg.text, useImageUrl=True, autoPage=iconf["auto_page"]
+                )
+                img_path = img.Save(self.image_cache_dir)
+                chain[-1] = Image.fromFileSystem(str(img_path))
 
         # 自动转发
         if (
