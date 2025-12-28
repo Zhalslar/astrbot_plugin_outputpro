@@ -112,10 +112,24 @@
         }
     },
     "parse_at": {
-        "description": "解析假艾特",
-        "type": "bool",
-        "hint": "第五步：将消息中句首的假艾特转换成真艾特，包括：@username @id [at:username] [at:id] ,且忽略中英文和大小写",
-        "default": true
+        "description": "解析假艾特配置",
+        "type": "object",
+        "hint": "第五步：将消息中句首的假艾特转换成真艾特",
+        "default": true,
+        "items": {
+            "enable": {
+                "description": "解析假艾特",
+                "hint": "支持解析的格式：@username @id [at:username] [at:id] ,且忽略中英文和大小写",
+                "type": "bool",
+                "default": true
+            },
+            "at_str": {
+                "description": "转换成字符串艾特",
+                "hint": "将解析到的真艾特重新转换成字符串艾特，即 @username xxx (如果发现真艾特与文本间的空格消失了，可以尝试开启此选项，开启后插件会用字符串形式保住空格)",
+                "type": "bool",
+                "default": true
+            }
+        }
     },
     "clean": {
         "description": "文本清理配置",
