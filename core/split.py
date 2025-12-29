@@ -14,19 +14,11 @@ from astrbot.api.message_components import (
 )
 from astrbot.api.star import Context
 
-# ============================================================
-# Segment：逻辑分段单元
-# ============================================================
-# 一个 Segment 表示“一段可以被单独发送的消息”
-# 它不关心如何发送，只负责：
-#   - 保存组件
-#   - 判断是否为空
-#   - 提供文本 / 媒体判断能力
-# ============================================================
-
 
 @dataclass
 class Segment:
+    """逻辑分段单元"""
+
     components: list[BaseMessageComponent] = field(default_factory=list)
 
     def append(self, comp: BaseMessageComponent):
@@ -61,17 +53,11 @@ class Segment:
                 comp.text = re.sub(r"[,，。.、；;：:]+$", "", comp.text)
                 break
 
-# ============================================================
-# MessageSplitter
-# ============================================================
-# 职责：
-#   1. 根据规则拆分消息
-#   2. 控制分段发送
-#   3. 不参与任何业务逻辑判断
-# ============================================================
-
 
 class MessageSplitter:
+    """
+    消息分段器
+    """
     def __init__(self, context: Context, config: AstrBotConfig):
         self.context = context
         sconf = config["split"]
@@ -142,11 +128,11 @@ class MessageSplitter:
         if not segments[-1].is_empty:
             chain.extend(segments[-1].components)
 
-    # ========================================================
-    # 拆分核心逻辑
-    # ========================================================
 
     def split_chain(self, chain: list[BaseMessageComponent]) -> list[Segment]:
+        """
+        拆分核心逻辑
+        """
         segments: list[Segment] = []
         current = Segment()
 
@@ -173,17 +159,13 @@ class MessageSplitter:
                 current = Segment()
 
         for comp in chain:
-            # ====================================================
-            # Reply / At：
-            #   - 必须与“后一个 segment”绑定
-            # ====================================================
+
+            # Reply / At：必须与“后一个 segment”绑定
             if isinstance(comp, Reply | At):
                 pending_prefix.append(comp)
                 continue
 
-            # ====================================================
             # Plain：唯一允许触发分段的组件
-            # ====================================================
             if isinstance(comp, Plain):
                 text = comp.text or ""
                 if not text:
@@ -232,9 +214,7 @@ class MessageSplitter:
 
                 continue
 
-            # ====================================================
             # Image / Face：跟随上一个 segment
-            # ====================================================
             if isinstance(comp, Image | Face):
                 if current.components:
                     current.append(comp)
@@ -244,9 +224,7 @@ class MessageSplitter:
                     push(Segment([comp]))
                 continue
 
-            # ====================================================
             # 其他组件：必须独立成段
-            # ====================================================
             flush()
             if pending_prefix:
                 push(Segment(pending_prefix[:]))
