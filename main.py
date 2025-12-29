@@ -294,8 +294,8 @@ class OutputPlugin(Star):
                         f"已插入 Reply：被顶 {pushed} 条（阈值 {self.conf['reply_threshold']}）"
                     )
 
-                    # 重置：防止连续引用
-                    g.msg_queue.clear()
+                    # 重置：防止连续引用，只移除已处理及更早的消息
+                    del queue[: idx + 1]
 
         # 自动转发
         if (
