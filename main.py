@@ -28,6 +28,7 @@ from astrbot.core.star.star_tools import StarTools
 
 from .core.at_policy import AtPolicy
 from .core.recall import Recaller
+from .core.split import MessageSplitter
 from .core.state import GroupState, StateManager
 
 
@@ -45,6 +46,9 @@ class OutputPlugin(Star):
         self.admin_id: str | None = admins_id[0] if admins_id else None
 
         self.at_policy = AtPolicy(self.conf)
+
+        # 分段回复器
+        self.splitter = MessageSplitter(context, config)
 
         self.style = None
 
@@ -108,6 +112,9 @@ class OutputPlugin(Star):
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     async def on_message(self, event: AstrMessageEvent):
         """接收消息后的处理"""
+        if event.get_extra("splitted_event"):
+            return
+
         gid: str = event.get_group_id()
         sender_id = event.get_sender_id()
         self_id = event.get_self_id()
@@ -231,7 +238,7 @@ class OutputPlugin(Star):
                     if cconf["punctuation"]:
                         seg.text = re.sub(cconf["punctuation"], "", seg.text)
 
-            # TTS
+            # 文转语音
             if (
                 isinstance(event, AiocqhttpMessageEvent)
                 and self.conf["tts"]["enable"]
@@ -243,27 +250,17 @@ class OutputPlugin(Star):
             ):
                 try:
                     character_id = self.conf["tts"]["character"].split("（", 1)[1][:-1]
+                    group_id = int(self.conf["tts"]["group_id"])
+                    text = chain[0].text
+                    logger.debug(f"正在使用角色{character_id}生成语音：{text}")
                     audio_path = await event.bot.get_ai_record(
                         character=character_id,
-                        group_id=int(self.conf["tts"]["group_id"]),
-                        text=chain[0].text,
+                        group_id=group_id,
+                        text=text,
                     )
                     chain[:] = [Record.fromURL(audio_path)]
                 except Exception as e:
                     logger.error(f"语音生成失败：{e}")
-
-
-            # 智能引用
-            if (
-                all(isinstance(seg, Plain | Image | Face | At) for seg in chain)
-                and self.conf["reply_threshold"] > 0
-            ):
-                # 当前事件也会使 g.after_bot_count 加 1，这里用  -1 表示只统计之前的消息
-                if g.after_bot_count - 1 >= self.conf["reply_threshold"]:
-                    chain.insert(0, Reply(id=event.message_obj.message_id))
-                    logger.debug("已插入Reply组件")
-                # 重置计数器
-                g.after_bot_count = 0
 
         # 文转图
         iconf = self.conf["t2i"]
@@ -275,6 +272,18 @@ class OutputPlugin(Star):
                 )
                 img_path = img.Save(self.image_cache_dir)
                 chain[-1] = Image.fromFileSystem(str(img_path))
+
+        # 智能引用
+        if (
+            all(isinstance(seg, Plain | Image | Face | At) for seg in chain)
+            and self.conf["reply_threshold"] > 0
+        ):
+            # 当前事件也会使 g.after_bot_count 加 1，这里用  -1 表示只统计之前的消息
+            if g.after_bot_count - 1 >= self.conf["reply_threshold"]:
+                chain.insert(0, Reply(id=event.message_obj.message_id))
+                logger.debug("已插入Reply组件")
+            # 重置计数器
+            g.after_bot_count = 0
 
         # 自动转发
         if (
@@ -294,3 +303,9 @@ class OutputPlugin(Star):
         # 自动撤回
         if isinstance(event, AiocqhttpMessageEvent) and self.conf["recall"]["enable"]:
             await self.recaller.send_and_recall(event)
+
+        # 分段回复
+        if self.conf["split"]["enable"]:
+            event.set_extra("splitted_event", True)
+            umo = event.unified_msg_origin
+            await self.splitter.split(umo, chain)

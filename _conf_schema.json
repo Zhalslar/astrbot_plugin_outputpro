@@ -52,7 +52,7 @@
     "only_llm_result": {
         "description": "只处理LLM结果",
         "type": "bool",
-        "hint": "第三步：只处理 LLM返回的消息。建议打开。作用域: 人机拦截、艾特配置、文本清理、TTS、引用阈值",
+        "hint": "第三步：只处理 LLM返回的消息。建议打开。作用域: 人机拦截、艾特配置、文本清理、文转语音",
         "default": true
     },
     "toobot": {
@@ -210,7 +210,7 @@
         }
     },
     "tts": {
-        "description": "TTS配置",
+        "description": "文转语音配置",
         "type": "object",
         "hint": "第七步：将消息转为语音。（仅aiocqhttp平台可用）",
         "items": {
@@ -280,21 +280,10 @@
             }
         }
     },
-    "reply_threshold": {
-        "description": "引用阈值",
-        "hint": "第八步：智能地引用消息。当bot要回复的消息被其他人插嘴了几条时，则引用要回复的消息。 设为 0 表示关闭引用功能, 请提前关闭Astrbot自动的Reply功能",
-        "type": "int",
-        "slider": {
-            "min": 0,
-            "max": 4,
-            "step": 1
-        },
-        "default": 1
-    },
     "t2i": {
         "description": "文转图配置",
         "type": "object",
-        "hint": "第九步：将长文本转为图片",
+        "hint": "第八步：将长文本转为图片",
         "items": {
             "enable": {
                 "description": "开启长文本转图",
@@ -332,6 +321,17 @@
                 "default": true
             }
         }
+    },
+    "reply_threshold": {
+        "description": "引用阈值",
+        "hint": "第九步：引用消息。当bot要回复的消息被其他人插嘴了几条时，则引用要回复的消息。 设为 0 表示关闭引用功能, 请提前关闭Astrbot自动的Reply功能",
+        "type": "int",
+        "slider": {
+            "min": 0,
+            "max": 4,
+            "step": 1
+        },
+        "default": 1
     },
     "forward": {
         "description": "转发配置",
@@ -393,6 +393,42 @@
                     "step": 1
                 },
                 "default": 30
+            }
+        }
+    },
+    "split": {
+        "description": "分段回复配置",
+        "hint": "第十二步：进行分段回复",
+        "type": "object",
+        "items": {
+            "enable": {
+                "description": "开启自动分段回复",
+                "hint": "开启此功能前, 务必先关闭Astrbot的自带的分段回复功能",
+                "type": "bool",
+                "default": false
+            },
+            "chars": {
+                "description": "触发分段的字符",
+                "hint": "文字后面带这些符号就会分段，（换行是\\n，空格是\\s），如：，。？！\\n",
+                "type": "string",
+                "default": "。？?\\n"
+            },
+            "max_count": {
+                "description": "最大分段数",
+                "hint": "超过此数量则不再分段",
+                "type": "int",
+                "slider": {
+                    "min": 1,
+                    "max": 5,
+                    "step": 1
+                },
+                "default": 3
+            },
+            "typing_delay": {
+                "description": "每段消息延迟范围（秒）",
+                "type": "string",
+                "hint": "采用线性插值算法，短文本延迟偏小，长文本延迟偏大",
+                "default": "1.5,3.5"
             }
         }
     }
