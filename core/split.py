@@ -14,6 +14,8 @@ from astrbot.api.message_components import (
 )
 from astrbot.api.star import Context
 
+from .model import OutContext
+
 
 @dataclass
 class Segment:
@@ -47,6 +49,7 @@ class MessageSplitter:
     """
     消息分段器
     """
+
     def __init__(self, context: Context, config: AstrBotConfig):
         self.context = context
         sconf = config["split"]
@@ -110,13 +113,12 @@ class MessageSplitter:
         delay = self.min_delay + (self.max_delay - self.min_delay) * ratio
         return delay
 
-
-    async def split(self, umo: str, chain: list[BaseMessageComponent]):
+    async def split(self, ctx: OutContext):
         """
         对消息进行拆分并发送。
         最后一段会回填到原 chain 中。
         """
-        segments = self.split_chain(chain)
+        segments = self.split_chain(ctx.chain)
 
         if len(segments) <= 1:
             return
@@ -132,7 +134,7 @@ class MessageSplitter:
 
             try:
                 await self.context.send_message(
-                    umo,
+                    ctx.event.unified_msg_origin,
                     MessageChain(seg.components),
                 )
                 delay = self._calc_delay(len(seg.text))
@@ -141,10 +143,9 @@ class MessageSplitter:
                 logger.error(f"[Splitter] 发送分段 {i + 1} 失败: {e}")
 
         # 最后一段回填给主流程继续处理
-        chain.clear()
+        ctx.chain.clear()
         if not segments[-1].is_empty:
-            chain.extend(segments[-1].components)
-
+            ctx.chain.extend(segments[-1].components)
 
     def split_chain(self, chain: list[BaseMessageComponent]) -> list[Segment]:
         """
@@ -176,7 +177,6 @@ class MessageSplitter:
                 current = Segment()
 
         for comp in chain:
-
             # Reply / At：必须与“后一个 segment”绑定
             if isinstance(comp, Reply | At):
                 pending_prefix.append(comp)

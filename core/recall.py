@@ -21,6 +21,8 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
 
+from .model import OutContext
+
 
 class Recaller:
     def __init__(self, config: AstrBotConfig):
@@ -66,39 +68,34 @@ class Recaller:
         except Exception as e:
             logger.error(f"撤回消息失败: {e}")
 
-    async def send_and_recall(self, event: AiocqhttpMessageEvent):
+    async def send_and_recall(self, ctx: OutContext):
         """对外接口：发消息并撤回"""
-        result = event.get_result()
-        if not result:
+        if not isinstance(ctx.event, AiocqhttpMessageEvent):
             return
-        chain = result.chain
-        if not chain:
-            return
-        # 无有效消息段直接退出
         if not any(
             isinstance(
                 seg, Plain | Image | Video | Face | At | AtAll | Forward | Reply | Nodes
             )
-            for seg in chain
+            for seg in ctx.chain
         ):
             return
 
         # 判断消息是否需要撤回
-        if not self._is_recall(chain):
+        if not self._is_recall(ctx.chain):
             return
 
-        event.should_call_llm(True)
-        obmsg = await event._parse_onebot_json(MessageChain(chain=chain))
-        client = event.bot
+        ctx.event.should_call_llm(True)
+        obmsg = await ctx.event._parse_onebot_json(MessageChain(chain=ctx.chain))
+        client = ctx.event.bot
 
         send_result = None
-        if group_id := event.get_group_id():
+        if ctx.gid:
             send_result = await client.send_group_msg(
-                group_id=int(group_id), message=obmsg
+                group_id=int(ctx.gid), message=obmsg
             )
-        elif user_id := event.get_sender_id():
+        elif ctx.uid:
             send_result = await client.send_private_msg(
-                user_id=int(user_id), message=obmsg
+                user_id=int(ctx.uid), message=obmsg
             )
 
         # 启动撤回任务
@@ -108,4 +105,4 @@ class Recaller:
             self.recall_tasks.append(task)
 
         # 清空原消息链
-        chain.clear()
+        ctx.chain.clear()

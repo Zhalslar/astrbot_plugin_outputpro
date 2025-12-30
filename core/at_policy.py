@@ -9,9 +9,8 @@ from astrbot.core.message.components import (
     Plain,
     Reply,
 )
-from astrbot.core.platform.astr_message_event import AstrMessageEvent
 
-from .state import GroupState
+from .model import OutContext
 
 
 class AtPolicy:
@@ -62,11 +61,11 @@ class AtPolicy:
     # -------------------------
     # 假 at 解析（只读）
     # -------------------------
-    def _parse_fake_at(self, chain: list[BaseMessageComponent], gstate: GroupState):
+    def _parse_fake_at(self, ctx: OutContext):
         """
         只识别，不修改
         """
-        for idx, seg in enumerate(chain):
+        for idx, seg in enumerate(ctx.chain):
             if not isinstance(seg, Plain) or not seg.text:
                 continue
 
@@ -77,8 +76,8 @@ class AtPolicy:
             qq = m.group(1) or m.group(3)
             nickname = m.group(2) or m.group(4)
 
-            if not qq and nickname and len(gstate.name_to_qq) > 0:
-                qq = gstate.name_to_qq.get(nickname)
+            if not qq and nickname and len(ctx.group.name_to_qq) > 0:
+                qq = ctx.group.name_to_qq.get(nickname)
 
             return idx, qq, nickname
 
@@ -110,39 +109,34 @@ class AtPolicy:
     # -------------------------
     # 主入口
     # -------------------------
-    def handle(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        gstate: GroupState,
-    ):
+    def handle(self, ctx: OutContext):
         # ===== 1. 假艾特解析 =====
-        idx, qq, nickname = self._parse_fake_at(chain, gstate)
-        self._apply_fake_at(chain, idx, qq, nickname)
+        idx, qq, nickname = self._parse_fake_at(ctx)
+        self._apply_fake_at(ctx.chain, idx, qq, nickname)
 
         # ===== 2. 智能艾特 =====
         at_prob = self.conf["parse_at"]["at_prob"]
         if not (
             at_prob > 0
-            and all(isinstance(c, Plain | Image | Face | At | Reply) for c in chain)
+            and all(isinstance(c, Plain | Image | Face | At | Reply) for c in ctx.chain)
         ):
             return
 
-        has_at = self._has_at(chain)
+        has_at = self._has_at(ctx.chain)
         hit = random.random() < at_prob
 
         # 命中 → 必须有 at
-        if hit and not has_at and chain and isinstance(chain[0], Plain):
+        if hit and not has_at and ctx.chain and isinstance(ctx.chain[0], Plain):
             self._insert_at(
-                chain,
-                qq=event.get_sender_id(),
-                nickname=event.get_sender_name(),
+                ctx.chain,
+                qq=ctx.uid,
+                nickname=ctx.event.get_sender_name(),
             )
 
         # 未命中 → 清除所有 at
         elif not hit and has_at:
             new_chain = []
-            for c in chain:
+            for c in ctx.chain:
                 if isinstance(c, At):
                     continue
                 if isinstance(c, Plain):
@@ -150,4 +144,4 @@ class AtPolicy:
                     if not c.text:
                         continue
                 new_chain.append(c)
-            chain[:] = new_chain
+            ctx.chain[:] = new_chain

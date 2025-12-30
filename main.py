@@ -13,7 +13,6 @@ from astrbot.api.star import Context, Star
 from astrbot.core import AstrBotConfig
 from astrbot.core.message.components import (
     At,
-    BaseMessageComponent,
     Face,
     Image,
     Node,
@@ -22,7 +21,7 @@ from astrbot.core.message.components import (
     Record,
     Reply,
 )
-from astrbot.core.message.message_event_result import MessageChain, MessageEventResult
+from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
@@ -30,20 +29,20 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
 from astrbot.core.star.star_tools import StarTools
 
 from .core.at_policy import AtPolicy
+from .core.model import GroupState, OutContext, StateManager
 from .core.recall import Recaller
 from .core.split import MessageSplitter
-from .core.state import GroupState, StateManager
 
 # ============================================================
 # Typing
 # ============================================================
 
-StepResult: TypeAlias = bool | None
-StepHandler: TypeAlias = Callable[
-    [AstrMessageEvent, list[BaseMessageComponent], MessageEventResult],
-    Awaitable[StepResult],
-]
 
+
+
+
+StepResult: TypeAlias = bool | None
+StepHandler: TypeAlias = Callable[[OutContext], Awaitable[StepResult]]
 
 # ============================================================
 # Pipeline Core
@@ -70,16 +69,11 @@ class Pipeline:
             return True
         return step_name not in self.llm_steps or result.is_llm_result()
 
-    async def run(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> bool:
+    async def run(self, ctx: OutContext) -> bool:
         for step in self.steps:
-            if not self.llm_allow(step.name, result):
+            if not self.llm_allow(step.name, ctx.result):
                 continue
-            ret = await step.handler(event, chain, result)
+            ret = await step.handler(ctx)
             if ret is False:
                 return False
 
@@ -216,100 +210,83 @@ class OutputPlugin(Star):
     # Steps
     # ============================================================
 
-    async def _step_summary(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
-        """图片摘要（直接发送并中断流水线）"""
-
+    async def _step_summary(self, ctx: OutContext) -> StepResult:
+        """图片外显（直接发送并中断流水线）"""
         if (
-            not isinstance(event, AiocqhttpMessageEvent)
-            or len(result.chain) != 1
-            or not isinstance(result.chain[0], Image)
+            not isinstance(ctx.event, AiocqhttpMessageEvent)
+            or len(ctx.chain) != 1
+            or not isinstance(ctx.result.chain[0], Image)
         ):
             return None
 
-        obmsg = await event._parse_onebot_json(MessageChain(result.chain))
+        obmsg = await ctx.event._parse_onebot_json(MessageChain(ctx.result.chain))
         obmsg[0]["data"]["summary"] = random.choice(self.conf["summary"]["quotes"])
 
-        await event.bot.send(event.message_obj.raw_message, obmsg)  # type: ignore
-        event.should_call_llm(True)
-        result.chain.clear()
+        await ctx.client.send(ctx.event.message_obj.raw_message, obmsg)  # type: ignore
+        ctx.event.should_call_llm(True)
+        ctx.result.chain.clear()
 
         return False
 
-    async def _step_error(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
+    async def _step_error(self, ctx: OutContext) -> StepResult:
         econf = self.conf.get("error", {})
         emode = econf.get("mode", "ignore")
 
         if emode == "ignore":
             return None
 
-        msg = result.get_plain_text()
         for word in econf.get("keywords", []):
-            if word not in msg:
+            if word not in ctx.plain:
                 continue
 
             if emode == "forward":
                 if self.admin_id:
-                    event.message_obj.group_id = ""
-                    event.message_obj.sender.user_id = self.admin_id
+                    ctx.event.message_obj.group_id = ""
+                    ctx.event.message_obj.sender.user_id = self.admin_id
                     logger.debug(f"已将消息发送目标改为管理员（{self.admin_id}）私聊")
                     return False
                 else:
                     logger.warning("未配置管理员ID，无法转发错误信息")
 
             elif emode == "block":
-                event.set_result(event.plain_result(""))
-                logger.warning(f"已阻止发送报错提示：{msg}")
+                ctx.event.set_result(ctx.event.plain_result(""))
+                logger.warning(f"已阻止发送报错提示：{ctx.plain}")
                 return False
 
         return None
 
-    async def _step_dedup(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
-        g: GroupState = StateManager.get_group(event.get_group_id())
-        msg = result.get_plain_text()
-        if msg in g.bot_msgs:
-            event.set_result(event.plain_result(""))
+    async def _step_dedup(self, ctx: OutContext) -> StepResult:
+
+        msg = ctx.result.get_plain_text()
+        if msg in ctx.group.bot_msgs:
+            ctx.event.set_result(ctx.event.plain_result(""))
             logger.warning(f"已阻止重复消息: {msg}")
             return False
 
-        if result.is_llm_result():
-            g.bot_msgs.append(msg)
+        if ctx.result.is_llm_result():
+            ctx.group.bot_msgs.append(msg)
 
         return None
 
-    async def _step_block_ai(self, event, _chain, result) -> StepResult:
-        msg = result.get_plain_text()
+    async def _step_block_ai(self, ctx: OutContext) -> StepResult:
+        msg = ctx.result.get_plain_text()
         for word in self.conf["block_ai"]["keywords"]:
             if word in msg:
-                event.set_result(event.plain_result(""))
+                ctx.event.set_result(ctx.event.plain_result(""))
                 logger.warning(f"已阻止人机话术: {msg}")
                 return False
 
         return None
 
-    async def _step_parse_at(self, event, chain, _result) -> StepResult:
-        g = StateManager.get_group(event.get_group_id())
-        self.at_policy.handle(event, chain, g)
+    async def _step_parse_at(self, ctx: OutContext) -> StepResult:
+        g = StateManager.get_group(ctx.event.get_group_id())
+        self.at_policy.handle(ctx)
         return None
 
-    async def _step_clean(self, _event, chain, _result) -> StepResult:
+    async def _step_clean(self, ctx: OutContext) -> StepResult:
         cconf = self.conf["clean"]
 
-        for seg in chain:
+        for seg in ctx.chain:
             if not isinstance(seg, Plain):
                 continue
             if len(seg.text) >= cconf["text_threshold"]:
@@ -336,124 +313,96 @@ class OutputPlugin(Star):
 
         return None
 
-    async def _step_tts(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
-        if not isinstance(event, AiocqhttpMessageEvent):
+    async def _step_tts(self, ctx: OutContext) -> StepResult:
+        if not isinstance(ctx.event, AiocqhttpMessageEvent):
             return None
 
         tconf = self.conf["tts"]
         if (
-            len(chain) != 1
-            or not isinstance(chain[0], Plain)
-            or len(chain[0].text) >= tconf["threshold"]
+            len(ctx.chain) != 1
+            or not isinstance(ctx.chain[0], Plain)
+            or len(ctx.chain[0].text) >= tconf["threshold"]
             or random.random() >= tconf["prob"]
         ):
             return None
 
         try:
             char_id = tconf["character"].split("（", 1)[1][:-1]
-            audio = await event.bot.get_ai_record(
+            audio = await ctx.event.bot.get_ai_record(
                 character=char_id,
                 group_id=int(tconf["group_id"]),
-                text=chain[0].text,
+                text=ctx.chain[0].text,
             )
-            chain[:] = [Record.fromURL(audio)]
+            ctx.chain[:] = [Record.fromURL(audio)]
         except Exception as e:
             logger.error(f"TTS 失败: {e}")
 
         return None
 
-    async def _step_t2i(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
+    async def _step_t2i(self, ctx: OutContext) -> StepResult:
         if not self.style:
             return None
 
         iconf = self.conf["t2i"]
 
-        if isinstance(chain[-1], Plain) and len(chain[-1].text) > iconf["threshold"]:
+        if (
+            isinstance(ctx.chain[-1], Plain)
+            and len(ctx.chain[-1].text) > iconf["threshold"]
+        ):
             img = await self.style.AioRender(
-                text=chain[-1].text,
+                text=ctx.chain[-1].text,
                 useImageUrl=True,
                 autoPage=iconf["auto_page"],
             )
             path = img.Save(self.image_cache_dir)
-            chain[-1] = Image.fromFileSystem(str(path))
+            ctx.chain[-1] = Image.fromFileSystem(str(path))
 
         return None
 
-    async def _step_reply(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
+    async def _step_reply(self, ctx: OutContext) -> StepResult:
         if self.conf["reply"]["threshold"] <= 0:
             return None
 
-        if not all(isinstance(x, Plain | Image | Face | At) for x in chain):
+        if not all(isinstance(x, Plain | Image | Face | At) for x in ctx.chain):
             return None
 
-        g = StateManager.get_group(event.get_group_id())
-        msg_id = event.message_obj.message_id
-        queue = g.msg_queue
+        msg_id = ctx.event.message_obj.message_id
+        queue = ctx.group.msg_queue
         if msg_id not in queue:
             return None
 
         pushed = len(queue) - queue.index(msg_id) - 1
         if pushed >= self.conf["reply"]["threshold"]:
-            chain.insert(0, Reply(id=msg_id))
+            ctx.chain.insert(0, Reply(id=msg_id))
             queue.clear()
 
         return None
 
-    async def _step_forward(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
-        if not isinstance(event, AiocqhttpMessageEvent):
+    async def _step_forward(self, ctx: OutContext) -> StepResult:
+        if not isinstance(ctx.event, AiocqhttpMessageEvent):
             return None
-        if not isinstance(chain[-1], Plain):
+        if not isinstance(ctx.chain[-1], Plain):
             return None
-        if len(chain[-1].text) <= self.conf["forward"]["threshold"]:
+        if len(ctx.chain[-1].text) <= self.conf["forward"]["threshold"]:
             return None
 
         nodes = Nodes([])
-        name = await self._ensure_node_name(event)
-        uid = event.get_self_id()
+        name = await self._ensure_node_name(ctx.event)
+        uid = ctx.event.get_self_id()
 
-        for seg in chain:
+        for seg in ctx.chain:
             nodes.nodes.append(Node(uin=uid, name=name, content=[seg]))
 
-        chain[:] = [nodes]
+        ctx.chain[:] = [nodes]
         return None
 
-    async def _step_recall(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
-        if isinstance(event, AiocqhttpMessageEvent):
-            await self.recaller.send_and_recall(event)
+    async def _step_recall(self, ctx: OutContext) -> StepResult:
+        if isinstance(ctx.event, AiocqhttpMessageEvent):
+            await self.recaller.send_and_recall(ctx)
         return None
 
-    async def _step_split(
-        self,
-        event: AstrMessageEvent,
-        chain: list[BaseMessageComponent],
-        result: MessageEventResult,
-    ) -> StepResult:
-        await self.splitter.split(event.unified_msg_origin, chain)
+    async def _step_split(self, ctx: OutContext) -> StepResult:
+        await self.splitter.split(ctx)
         return None
 
     # ============================================================
@@ -462,6 +411,7 @@ class OutputPlugin(Star):
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     async def on_message(self, event: AstrMessageEvent):
+        """收到群消息后"""
         gid = event.get_group_id()
         sender_id = event.get_sender_id()
         self_id = event.get_self_id()
@@ -479,8 +429,24 @@ class OutputPlugin(Star):
 
     @filter.on_decorating_result(priority=15)
     async def on_decorating_result(self, event: AstrMessageEvent):
+        """发送消息前"""
         result = event.get_result()
         if not result or not result.chain:
             return
+        plain = result.get_plain_text()
+        gid = event.get_group_id()
+        uid = event.get_sender_id()
+        bid = event.get_self_id()
+        group: GroupState = StateManager.get_group(gid)
+        ctx = OutContext(
+            event=event,
+            chain=result.chain,
+            result=result,
+            plain=plain,
+            gid=gid,
+            uid=uid,
+            bid=bid,
+            group=group,
+        )
 
-        await self.pipeline.run(event, result.chain, result)
+        await self.pipeline.run(ctx)
