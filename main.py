@@ -98,11 +98,11 @@ class OutputPlugin(Star):
         self.style = None
 
         self._enabled_steps: list[str] = [
-            self._normalize_step_name(name) for name in config["pipeline"]["steps"]
+            name.split("(", 1)[0].strip() for name in config["pipeline"]["steps"]
         ]
 
         self._llm_steps: list[str] = [
-            self._normalize_step_name(s) for s in config["pipeline"]["llm_steps"]
+            name.split("(", 1)[0].strip() for name in config["pipeline"]["llm_steps"]
         ]
 
         self.pipeline = self._build_pipeline()
@@ -114,10 +114,6 @@ class OutputPlugin(Star):
     def is_step_enabled(self, name: str) -> bool:
         """判断步骤是否启用"""
         return name in self._enabled_steps
-
-    def _normalize_step_name(self, name: str) -> str:
-        """去掉显示用的后缀，如 summary(图片外显) -> summary"""
-        return name.split("(", 1)[0].strip()
 
     async def _ensure_node_name(self, event: AstrMessageEvent) -> str:
         """确保消息节点名称"""
