@@ -85,6 +85,7 @@ class OutputPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.conf = config
+        self.context = context
 
         self.data_dir = StarTools.get_data_dir("astrbot_plugin_outputpro")
         self.image_cache_dir = self.data_dir / "image_cache"
@@ -231,18 +232,52 @@ class OutputPlugin(Star):
             if word not in ctx.plain:
                 continue
 
+            # 获取自定义消息
+            custom_msg = econf.get("custom_message", "").strip()
+
             if emode == "forward":
                 if self.admin_id:
+                    # 如果有自定义消息且是 aiocqhttp 平台，先发送给管理员，然后在原对话回复自定义消息
+                    if custom_msg and isinstance(ctx.event, AiocqhttpMessageEvent):
+                        try:
+                            # 先将报错信息发送给管理员
+                            error_msg = f"[报错拦截] 来自 {ctx.gid or ctx.uid}\n{ctx.plain}"
+                            await ctx.event.bot.send_private_msg(
+                                user_id=int(self.admin_id),
+                                message=error_msg
+                            )
+                            logger.debug(f"已将报错消息转发给管理员（{self.admin_id}）私聊")
+                            
+                            # 在原对话回复自定义消息
+                            ctx.event.set_result(ctx.event.plain_result(custom_msg))
+                            logger.debug(f"已在原对话发送自定义消息: {custom_msg}")
+                            return False
+                        except Exception as e:
+                            logger.error(f"转发报错失败: {e}")
+                    
+                    # 如果没有自定义消息或不是 aiocqhttp 平台，使用原逻辑（将消息转发给管理员）
                     ctx.event.message_obj.group_id = ""
                     ctx.event.message_obj.sender.user_id = self.admin_id
                     logger.debug(f"已将消息发送目标改为管理员（{self.admin_id}）私聊")
                     return False
                 else:
                     logger.warning("未配置管理员ID，无法转发错误信息")
+                    # 如果没有配置管理员且有自定义消息，则拦截并显示自定义消息
+                    if custom_msg:
+                        ctx.event.set_result(ctx.event.plain_result(custom_msg))
+                        logger.warning(f"已拦截报错并发送自定义消息: {custom_msg}")
+                        return False
+                    # 如果没有自定义消息，不发送任何内容到原对话，直接拦截
+                    logger.warning(f"已阻止发送报错提示：{ctx.plain}")
+                    return False
 
             elif emode == "block":
-                ctx.event.set_result(ctx.event.plain_result(""))
-                logger.warning(f"已阻止发送报错提示：{ctx.plain}")
+                # 拦截模式：如果有自定义消息则发送，否则不发送任何内容
+                if custom_msg:
+                    ctx.event.set_result(ctx.event.plain_result(custom_msg))
+                    logger.warning(f"已拦截报错并发送自定义消息: {custom_msg}")
+                else:
+                    logger.warning(f"已拦截报错（不发送消息）：{ctx.plain}")
                 return False
 
         return None

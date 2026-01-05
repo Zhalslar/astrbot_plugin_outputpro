@@ -115,6 +115,12 @@
                     "ignore"
                 ],
                 "default": "forward"
+            },
+            "custom_message": {
+                "description": "拦截时的自定义消息",
+                "hint": "当拦截报错或转发给管理员时，会在原对话中发送此消息。留空则不发送",
+                "type": "string",
+                "default": "抱歉，刚才遇到了一点问题，请稍后再试~"
             }
         }
     },
