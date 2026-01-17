@@ -488,6 +488,12 @@
                     "\\n"
                 ]
             },
+            "smart": {
+                "description": "智能分段",
+                "hint": "开启后，括号/引号等成对符号内部不会触发分段",
+                "type": "bool",
+                "default": false
+            },
             "max_count": {
                 "description": "最大分段数",
                 "hint": "超过此数量则不再分段",

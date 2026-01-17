@@ -151,6 +151,7 @@ class SplitConfig(Section):
     char_list: list[str]
     max_count: int
     typing_delay: str
+    smart: bool
 
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)

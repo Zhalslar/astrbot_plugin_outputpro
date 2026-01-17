@@ -50,6 +50,7 @@ class SplitStep(BaseStep):
     name = StepName.SPLIT
 
     def __init__(self, config: PluginConfig):
+        super().__init__(config)
         self.cfg = config.split
         self.context = config.context
 
@@ -62,6 +63,18 @@ class SplitStep(BaseStep):
         # 末尾标点清除正则
         tail_punc = ".,，。、;；:："
         self.tail_punc_re = re.compile(f"[{re.escape(tail_punc)}]+$")
+        self._pair_map = {
+            "“": "”",
+            "《": "》",
+            "（": "）",
+            "(": ")",
+            "[": "]",
+            "{": "}",
+            "‘": "’",
+            "【": "】",
+            "<": ">",
+        }
+        self._quote_chars = {'"', "'", "`"}
 
     async def handle(self, ctx: OutContext) -> StepResult:
         """
@@ -83,9 +96,10 @@ class SplitStep(BaseStep):
                 continue
 
             try:
-                await self.context.send_message(
+                send_comps = self._wrap_plain_with_zwsp(seg.components)
+                await self.plugin_config.context.send_message(
                     ctx.event.unified_msg_origin,
-                    MessageChain(seg.components),
+                    MessageChain(send_comps),
                 )
                 delay = self._calc_delay(len(seg.text))
                 await asyncio.sleep(delay)
@@ -95,7 +109,9 @@ class SplitStep(BaseStep):
         # 最后一段回填给主流程继续处理
         ctx.chain.clear()
         if not segments[-1].is_empty:
-            ctx.chain.extend(segments[-1].components)
+            last_seg = segments[-1]
+            last_comps = self._wrap_plain_with_zwsp(last_seg.components)
+            ctx.chain.extend(last_comps)
 
         return StepResult(msg="分段回复完成")
 
@@ -119,6 +135,20 @@ class SplitStep(BaseStep):
         ratio = min(text_len / self._max_len_for_delay, 1.0)
         delay = min_delay + (max_delay - min_delay) * ratio
         return delay
+
+    def _wrap_plain_with_zwsp(self, comps: list[BaseMessageComponent]) -> list[BaseMessageComponent]:
+        wrapped: list[BaseMessageComponent] = []
+        for comp in comps:
+            if isinstance(comp, Plain) and comp.text:
+                text = comp.text
+                if not text.startswith("\u200b"):
+                    text = "\u200b" + text
+                if not text.endswith("\u200b"):
+                    text = text + "\u200b"
+                wrapped.append(Plain(text))
+            else:
+                wrapped.append(comp)
+        return wrapped
 
     def _split_chain(self, chain: list[BaseMessageComponent]) -> list[Segment]:
         """
@@ -155,52 +185,104 @@ class SplitStep(BaseStep):
                 pending_prefix.append(comp)
                 continue
 
-            # Plain：唯一允许触发分段的组件
             if isinstance(comp, Plain):
                 text = comp.text or ""
                 if not text:
                     continue
+                if getattr(self.cfg, "smart", False):
+                    stack: list[str] = []
+                    pattern = re.compile(self.cfg._split_pattern)
+                    i = 0
+                    n = len(text)
+                    buf = ""
 
-                # 按分隔符拆分
-                parts = re.split(f"({self.cfg._split_pattern})", text)
-                buf = ""
+                    while i < n:
+                        ch = text[i]
+                        is_opener = ch in self._pair_map
 
-                for part in parts:
-                    if not part:
-                        continue
+                        if ch in self._quote_chars:
+                            if stack and stack[-1] == ch:
+                                stack.pop()
+                            else:
+                                stack.append(ch)
+                            buf += ch
+                            i += 1
+                            continue
 
-                    # 命中分隔符：形成一个完整 segment
-                    if re.fullmatch(self.cfg._split_pattern, part):
-                        buf += part
-                        if buf:
-                            if pending_prefix:
-                                current.extend(pending_prefix)
-                                pending_prefix.clear()
+                        if stack:
+                            expected_closer = self._pair_map.get(stack[-1])
+                            if ch == expected_closer:
+                                stack.pop()
+                            elif is_opener:
+                                stack.append(ch)
+                            buf += ch
+                            i += 1
+                            continue
 
-                            current.append(Plain(buf))
-                            flush()
-                            buf = ""
-                    else:
-                        # 普通文本
-                        if buf:
-                            if pending_prefix:
-                                current.extend(pending_prefix)
-                                pending_prefix.clear()
-                            current.append(Plain(buf))
-                            buf = ""
+                        if is_opener:
+                            stack.append(ch)
+                            buf += ch
+                            i += 1
+                            continue
 
+                        m = pattern.match(text, i)
+                        if m:
+                            delim = m.group()
+                            buf += delim
+                            if buf:
+                                if pending_prefix:
+                                    current.extend(pending_prefix)
+                                    pending_prefix.clear()
+                                current.append(Plain(buf))
+                                flush()
+                                buf = ""
+                            i += len(delim)
+                        else:
+                            buf += ch
+                            i += 1
+
+                    if buf:
                         if pending_prefix:
                             current.extend(pending_prefix)
                             pending_prefix.clear()
+                        current.append(Plain(buf))
+                else:
+                    parts = re.split(f"({self.cfg._split_pattern})", text)
+                    buf = ""
 
-                        current.append(Plain(part))
+                    for part in parts:
+                        if not part:
+                            continue
 
-                # 剩余文本
-                if buf:
-                    if pending_prefix:
-                        current.extend(pending_prefix)
-                        pending_prefix.clear()
-                    current.append(Plain(buf))
+                        if re.fullmatch(self.cfg._split_pattern, part):
+                            buf += part
+                            if buf:
+                                if pending_prefix:
+                                    current.extend(pending_prefix)
+                                    pending_prefix.clear()
+
+                                current.append(Plain(buf))
+                                flush()
+                                buf = ""
+                        else:
+                            if buf:
+                                if pending_prefix:
+                                    current.extend(pending_prefix)
+                                    pending_prefix.clear()
+                                current.append(Plain(buf))
+                                buf = ""
+
+                            if pending_prefix:
+                                current.extend(pending_prefix)
+                                pending_prefix.clear()
+
+                            current.append(Plain(part))
+
+                    if buf:
+                        if pending_prefix:
+                            current.extend(pending_prefix)
+                            pending_prefix.clear()
+                        current.append(Plain(buf))
 
                 continue
 
