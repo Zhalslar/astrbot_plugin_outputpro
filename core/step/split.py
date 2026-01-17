@@ -50,7 +50,6 @@ class SplitStep(BaseStep):
     name = StepName.SPLIT
 
     def __init__(self, config: PluginConfig):
-        self.raw_config = config
         self.cfg = config.split
 
         # 最大分段数（<=0 表示不限制）
@@ -83,7 +82,7 @@ class SplitStep(BaseStep):
                 continue
 
             try:
-                await self.raw_config.context.send_message(
+                await self.plugin_config.context.send_message(
                     ctx.event.unified_msg_origin,
                     MessageChain(seg.components),
                 )

@@ -113,16 +113,17 @@
                     "出现异常"
                 ]
             },
-            "mode": {
-                "description": "报错处理模式",
-                "hint": "block:拦截报错;    forward:转发报错给管理员;    ignore:不处理",
+            "custom_msg": {
+                "description": "原对话的消息",
+                "hint": "当报错被拦截时，会在原对话中发送此消息。留空则不发送",
                 "type": "string",
-                "options": [
-                    "block",
-                    "forward",
-                    "ignore"
-                ],
-                "default": "forward"
+                "default": ""
+            },
+            "forward_umo": {
+                "description": "转发的会话ID",
+                "hint": "将报错信息转发到此会话，用 sid 命令可查看当前会话的ID。填 admin 则转发给配置中的所有 Bot 管理员, 留空则不转发",
+                "type": "string",
+                "default": "admin"
             }
         }
     },
