@@ -84,7 +84,8 @@ class SummaryConfig(Section):
 
 class ErrorConfig(Section):
     keywords: list[str]
-    mode: str
+    custom_msg: str
+    forward_umo: str
 
 
 class BlockConfig(Section):

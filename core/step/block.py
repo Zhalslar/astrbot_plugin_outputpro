@@ -15,7 +15,7 @@ class BlockStep(BaseStep):
     # ================== 各类拦截 ==================
 
     async def _block_timeout(self, ctx: OutContext) -> StepResult | None:
-        if int(time.time()) - ctx.timestamp > self.cfg.timeout:
+        if self.cfg.timeout > 0 and int(time.time()) - ctx.timestamp > self.cfg.timeout:
             ctx.event.set_result(ctx.event.plain_result(""))
             return StepResult(
                 abort=True,
@@ -24,7 +24,6 @@ class BlockStep(BaseStep):
 
         if ctx.is_llm:
             ctx.group.bot_msgs.append(ctx.plain)
-
 
     async def _block_dedup(self, ctx: OutContext) -> StepResult | None:
         if ctx.plain in ctx.group.bot_msgs:
