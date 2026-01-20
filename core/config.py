@@ -127,7 +127,7 @@ class ErrorConfig(ConfigNode):
 class BlockConfig(ConfigNode):
     timeout: int
     block_reread: bool
-    ai_words: list[str]
+    block_words: list[str]
 
 
 class AtConfig(ConfigNode):

@@ -2,6 +2,6 @@ name: astrbot_plugin_outputpro
 display_name: 输出增强
 desc: Astrbot输出管道：图片外显 → 报错拦截 → 复读拦截 → 人机拦截 → 解析艾特 → 文本清洗 → 文转语音 → 文转图片 → 智能引用 → 合并转发 → 自动撤回 → 分段回复
 help: 略
-version: v2.1.1
+version: v2.1.2
 author: Zhalslar
 repo: https://github.com/Zhalslar/astrbot_plugin_outputpro
