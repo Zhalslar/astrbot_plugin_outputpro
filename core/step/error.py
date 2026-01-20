@@ -4,6 +4,7 @@ import copy
 from astrbot.api import logger
 from astrbot.core.message.components import Plain
 from astrbot.core.message.message_event_result import MessageChain
+from astrbot.core.platform.message_type import MessageType
 
 from ..config import PluginConfig
 from ..model import OutContext, StepName, StepResult
@@ -42,14 +43,7 @@ class ErrorStep(BaseStep):
                 try:
                     session = copy.copy(ctx.event.session)
                     session.session_id = admin_id
-                    
-                    # 强制转换为私聊上下文，防止因复用群聊Session导致发送失败
-                    if hasattr(session, 'message_type'):
-                        session.message_type = 'private' 
-                    if hasattr(session, 'group_id'):
-                        session.group_id = None
-                    if hasattr(session, 'detail_type'): # onebot v12
-                         session.detail_type = 'private'
+                    session.message_type = MessageType.FRIEND_MESSAGE
                     await context.send_message(session, chain)
                 except asyncio.CancelledError:
                     raise
