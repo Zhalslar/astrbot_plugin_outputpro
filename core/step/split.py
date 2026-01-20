@@ -165,6 +165,10 @@ class SplitStep(BaseStep):
 
             if self.max_count > 0 and len(segments) >= self.max_count:
                 # 超出限制则合并到最后一个 segment
+                # 在合并处强制添加一个空格，确保文本不粘连
+                if segments[-1].components and seg.components:
+                    if isinstance(seg.components[0], Plain):
+                        seg.components[0].text = " " + seg.components[0].text
                 segments[-1].extend(seg.components)
             else:
                 segments.append(seg)
