@@ -115,12 +115,6 @@ class SplitStep(BaseStep):
 
         return StepResult(msg="分段回复完成")
 
-    def _strip_last_plain(self, seg: Segment):
-        """清掉 Segment 中语义最后一个非空 Plain 的句尾标点"""
-        for comp in reversed(seg.components):
-            if isinstance(comp, Plain) and comp.text.strip():
-                comp.text = self.tail_punc_re.sub("", comp.text)
-                break
 
     def _calc_delay(self, text_len: int) -> float:
         """
@@ -151,6 +145,7 @@ class SplitStep(BaseStep):
             else:
                 wrapped.append(comp)
         return wrapped
+
 
     def _split_chain(self, chain: list[BaseMessageComponent]) -> list[Segment]:
         """
@@ -187,11 +182,13 @@ class SplitStep(BaseStep):
                 pending_prefix.append(comp)
                 continue
 
+            # Plain 组件
             if isinstance(comp, Plain):
                 text = comp.text or ""
                 if not text:
                     continue
-                if getattr(self.cfg, "smart", False):
+                # 智能分段
+                if self.cfg.smart:
                     stack: list[str] = []
                     pattern = re.compile(self.cfg._split_pattern)
                     i = 0
@@ -248,6 +245,7 @@ class SplitStep(BaseStep):
                             current.extend(pending_prefix)
                             pending_prefix.clear()
                         current.append(Plain(buf))
+                # 普通分段
                 else:
                     parts = re.split(f"({self.cfg._split_pattern})", text)
                     buf = ""
@@ -308,7 +306,16 @@ class SplitStep(BaseStep):
         if current.components:
             push(current)
 
+        # 后处理：去除所有 Plain 组件的末尾空白字符， 去除最后一个 Plain 组件的末尾符号
         for seg in segments:
-            self._strip_last_plain(seg)
-
+            for comp in seg.components:
+                if isinstance(comp, Plain):
+                    comp.text = comp.text.rstrip()
+            for comp in reversed(seg.components):
+                if isinstance(comp, Plain) and comp.text.strip():
+                    comp.text = self.tail_punc_re.sub("", comp.text)
+                    break
         return segments
+
+
+
