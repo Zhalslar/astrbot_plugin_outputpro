@@ -81,6 +81,10 @@ class SplitStep(BaseStep):
         对消息进行拆分并发送。
         最后一段会回填到原 chain 中。
         """
+        platform_name = ctx.event.get_platform_name()
+        if platform_name not in {"aiocqhttp", "telegram", "lark"}:
+            return StepResult()
+
         segments = self._split_chain(ctx.chain)
 
         if len(segments) <= 1:
