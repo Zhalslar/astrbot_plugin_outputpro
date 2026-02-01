@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, MutableMapping
-from types import MappingProxyType
-from typing import Any, get_type_hints
+from types import MappingProxyType, UnionType
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
@@ -26,8 +26,6 @@ class ConfigNode:
     _SCHEMA_CACHE: dict[type, dict[str, type]] = {}
     _FIELDS_CACHE: dict[type, set[str]] = {}
 
-    # ---------- schema ----------
-
     @classmethod
     def _schema(cls) -> dict[str, type]:
         return cls._SCHEMA_CACHE.setdefault(cls, get_type_hints(cls))
@@ -39,13 +37,25 @@ class ConfigNode:
             {k for k in cls._schema() if not k.startswith("_")},
         )
 
+    @staticmethod
+    def _is_optional(tp: type) -> bool:
+        if get_origin(tp) in (Union, UnionType):
+            return type(None) in get_args(tp)
+        return False
+
     def __init__(self, data: MutableMapping[str, Any]):
         object.__setattr__(self, "_data", data)
         object.__setattr__(self, "_children", {})
-        for key in self._fields():
-            if key not in data and not hasattr(self.__class__, key):
-                logger.warning(f"[config:{self.__class__.__name__}] 缺少字段: {key}")
+        for key, tp in self._schema().items():
+            if key.startswith("_"):
                 continue
+            if key in data:
+                continue
+            if hasattr(self.__class__, key):
+                continue
+            if self._is_optional(tp):
+                continue
+            logger.warning(f"[config:{self.__class__.__name__}] 缺少字段: {key}")
 
     def __getattr__(self, key: str) -> Any:
         if key in self._fields():
@@ -206,6 +216,37 @@ class SplitConfig(ConfigNode):
         return f"[{''.join(tokens)}]+"
 
 
+class SplitterProConfig(ConfigNode):
+    split_mode: str
+    split_chars: str
+    split_regex: str
+    clean_regex: str
+    max_count: int
+    max_length_no_split: int
+    smart: bool
+    enable_reply: bool
+    split_scope: str
+    
+    # Delay Strategies
+    delay_strategy: str
+    linear_base: float
+    linear_factor: float
+    log_base: float
+    log_factor: float
+    random_min: float
+    random_max: float
+    fixed_delay: float
+
+    # Media Strategies
+    image_strategy: str
+    at_strategy: str
+    face_strategy: str
+    other_media_strategy: str
+
+    def __init__(self, data: MutableMapping[str, Any]):
+        super().__init__(data)
+        # No extra init logic needed for fields that are just read directly
+
 class PluginConfig(ConfigNode):
     pipeline: PipelineConfig
     summary: SummaryConfig
@@ -220,6 +261,7 @@ class PluginConfig(ConfigNode):
     forward: ForwardConfig
     recall: RecallConfig
     split: SplitConfig
+    splitter_pro: SplitterProConfig
 
     def __init__(self, cfg: AstrBotConfig, *, context: Context):
         super().__init__(cfg)

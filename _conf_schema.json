@@ -26,7 +26,8 @@
                     "reply(智能引用)",
                     "forward(合并转发)",
                     "recall(自动撤回)",
-                    "split(分段回复)"
+                    "split(分段回复)",
+                    "splitter_pro(高级分段)"
                 ],
                 "default": [
                     "summary(图片外显)",
@@ -59,7 +60,8 @@
                     "reply(智能引用)",
                     "forward(合并转发)",
                     "recall(自动撤回)",
-                    "split(分段回复)"
+                    "split(分段回复)",
+                    "splitter_pro(高级分段)"
                 ],
                 "default": [
                     "block(消息拦截)",
@@ -510,6 +512,169 @@
                 "type": "string",
                 "hint": "采用线性插值算法，短文本延迟偏小，长文本延迟偏大",
                 "default": "1.5,3.5"
+            }
+        }
+    },
+    "splitter_pro": {
+        "description": "【高级分段】",
+        "hint": "进行分段回复 (Splitter Pro - 完全移植版)",
+        "type": "object",
+        "items": {
+            "split_mode": {
+                "description": "分段识别模式",
+                "hint": "Regex: 使用正则表达式匹配; Simple: 使用指定字符匹配。",
+                "type": "string",
+                "options": [
+                    "regex",
+                    "simple"
+                ],
+                "default": "regex"
+            },
+            "split_chars": {
+                "description": "简单模式分段字符",
+                "hint": "仅分段模式为 simple 时生效。文字后面带这些符号就会分段",
+                "type": "string",
+                "default": "。？！?!；;\n"
+            },
+            "split_regex": {
+                "description": "正则分段表达式",
+                "hint": "仅在分段模式为 regex 时生效。",
+                "type": "string",
+                "default": "[。？！?!\n…]+"
+            },
+            "clean_regex": {
+                "description": "内容清理正则",
+                "hint": "分段后清理内容的正则表达式。",
+                "type": "string",
+                "default": ""
+            },
+            "max_count": {
+                "description": "最大分段数量",
+                "hint": "超过此数量则不再分段",
+                "type": "int",
+                "slider": {
+                    "min": 1,
+                    "max": 20,
+                    "step": 1
+                },
+                "default": 7
+            },
+            "max_length_no_split": {
+                "description": "分段阈值",
+                "hint": "文本长度小于此值时不分段（0表示不限制）",
+                "type": "int",
+                "default": 0
+            },
+            "smart": {
+                "description": "智能分段(忽略引号内标点)",
+                "hint": "是否开启智能识别",
+                "type": "bool",
+                "default": true
+            },
+            "enable_reply": {
+                "description": "保留回复引用",
+                "hint": "开启后，将在第一段消息中引用用户的原消息；关闭则不引用。",
+                "type": "bool",
+                "default": true
+            },
+            "split_scope": {
+                "description": "分段内容范围",
+                "hint": "llm_only: 只对LLM生成内容分段; all: 对所有插件输出分段",
+                "type": "string",
+                "options": [
+                    "llm_only",
+                    "all"
+                ],
+                "default": "llm_only"
+            },
+            "image_strategy": {
+                "description": "图片分段策略",
+                "type": "string",
+                "options": [
+                    "单独",
+                    "跟随下段",
+                    "跟随上段",
+                    "嵌入"
+                ],
+                "default": "单独"
+            },
+            "at_strategy": {
+                "description": "At(@)分段策略",
+                "type": "string",
+                "options": [
+                    "单独",
+                    "跟随下段",
+                    "跟随上段"
+                ],
+                "default": "跟随下段"
+            },
+            "face_strategy": {
+                "description": "表情(Face)分段策略",
+                "type": "string",
+                "options": [
+                    "单独",
+                    "跟随下段",
+                    "跟随上段",
+                    "嵌入"
+                ],
+                "default": "嵌入"
+            },
+            "other_media_strategy": {
+                "description": "其他组件分段策略",
+                "type": "string",
+                "options": [
+                    "单独",
+                    "跟随下段",
+                    "跟随上段"
+                ],
+                "default": "跟随下段"
+            },
+            "delay_strategy": {
+                "description": "延迟策略",
+                "hint": "Linear: 线性; Log: 对数; Random: 随机; Fixed: 固定。",
+                "type": "string",
+                "options": [
+                    "linear",
+                    "log",
+                    "random",
+                    "fixed"
+                ],
+                "default": "linear"
+            },
+            "linear_base": {
+                "description": "线性延迟基数(秒)",
+                "type": "float",
+                "default": 0.5
+            },
+            "linear_factor": {
+                "description": "线性延迟系数(秒/字)",
+                "type": "float",
+                "default": 0.1
+            },
+            "log_base": {
+                "description": "对数延迟基数(秒)",
+                "type": "float",
+                "default": 0.5
+            },
+            "log_factor": {
+                "description": "对数延迟系数",
+                "type": "float",
+                "default": 0.8
+            },
+            "random_min": {
+                "description": "随机延迟最小值(秒)",
+                "type": "float",
+                "default": 1.0
+            },
+            "random_max": {
+                "description": "随机延迟最大值(秒)",
+                "type": "float",
+                "default": 3.0
+            },
+            "fixed_delay": {
+                "description": "固定延迟时间(秒)",
+                "type": "float",
+                "default": 1.5
             }
         }
     }

@@ -61,6 +61,7 @@ class StepName(str, Enum):
     FORWARD = "forward"
     RECALL = "recall"
     SPLIT = "split"
+    SPLITTER_PRO = "splitter_pro"
 
 
 @dataclass(slots=True)

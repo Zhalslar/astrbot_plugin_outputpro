@@ -15,6 +15,7 @@ from .step import (
     ReplaceStep,
     ReplyStep,
     SplitStep,
+    SplitterProStep,
     SummaryStep,
     T2IStep,
     TTSStep,
@@ -44,6 +45,7 @@ class Pipeline:
         ("forward", ForwardStep),
         ("recall", RecallStep),
         ("split", SplitStep),
+        ("splitter_pro", SplitterProStep),
     ]
 
     def __init__(self, config: PluginConfig):

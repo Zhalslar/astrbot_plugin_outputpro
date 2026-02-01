@@ -8,6 +8,7 @@ from .recall import RecallStep
 from .replace import ReplaceStep
 from .reply import ReplyStep
 from .split import SplitStep
+from .splitter_pro import SplitterProStep
 from .summary import SummaryStep
 from .t2i import T2IStep
 from .tts import TTSStep
@@ -18,6 +19,7 @@ __all__ = [
     "CleanStep",
     "RecallStep",
     "SplitStep",
+    "SplitterProStep",
     "SummaryStep",
     "ErrorStep",
     "ReplyStep",
