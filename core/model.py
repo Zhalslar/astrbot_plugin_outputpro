@@ -16,6 +16,8 @@ class GroupState(BaseModel):
     """Bot消息缓存"""
     msg_queue: deque[str] = Field(default_factory=lambda: deque(maxlen=10))
     """用户消息缓存"""
+    last_reply_mark_msg_id: str | None = None
+    """最近一次追加 bot 插嘴标记对应的消息 ID（用于去重）"""
     name_to_qq: OrderedDict[str, str] = Field(default_factory=lambda: OrderedDict())
     """昵称 -> QQ"""
 

@@ -37,6 +37,14 @@ class ReplyStep(BaseStep):
                         ctx.chain.insert(1, At(qq=ctx.event.get_sender_id()))
                         # 在 At 后添加带零宽空格包裹的空格，确保与后续内容有间距
                         ctx.chain.insert(2, Plain(text="\u200b \u200b"))
-                    queue.clear()
+                    # 仅移除已引用的消息及其之前的记录，保留之后的消息用于后续引用判断
+                    while queue and queue[0] != msg_id:
+                        queue.popleft()
+                    if queue and queue[0] == msg_id:
+                        queue.popleft()
+                    # 追加 bot 插嘴标记，确保后续回复也能判断“被插嘴”
+                    if ctx.group.last_reply_mark_msg_id != msg_id:
+                        queue.append(f"__bot_reply__{msg_id}")
+                        ctx.group.last_reply_mark_msg_id = msg_id
                     return StepResult(msg=f"已插入Reply组件, 引用消息{msg_id}")
         return StepResult()
