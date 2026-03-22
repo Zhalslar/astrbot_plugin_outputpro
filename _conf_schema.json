@@ -453,7 +453,7 @@
     },
     "forward": {
         "description": "【合并转发】",
-        "hint": "将长文本合并转发（仅aiocqhttp平台可用）",
+        "hint": "将长文本合并转发（aiocqhttp 平台为合并转发，Telegram 平台为折叠引用）",
         "type": "object",
         "items": {
             "threshold": {

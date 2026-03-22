@@ -16,6 +16,7 @@ from astrbot.core.message.components import (
     Video,
 )
 from astrbot.core.message.message_event_result import MessageChain
+from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
@@ -68,6 +69,28 @@ class RecallStep(BaseStep):
         except Exception as e:
             logger.error(f"撤回消息失败: {e}")
 
+    def _is_tg_platform(self, event: AstrMessageEvent) -> bool:
+        return str(event.get_platform_name() or "") == "telegram"
+
+    def _tg_chat_target(self, event: AstrMessageEvent) -> tuple[str, str | None]:
+        chat_id = event.get_group_id() or event.get_sender_id()
+        chat_id = str(chat_id)
+        message_thread_id = None
+        if "#" in chat_id:
+            chat_id, message_thread_id = chat_id.split("#", 1)
+        return chat_id, message_thread_id
+
+    def _chain_plain_text(self, chain: list[BaseMessageComponent]) -> str:
+        return "".join(seg.text for seg in chain if isinstance(seg, Plain)).strip()
+
+    async def _tg_recall_msg(self, tg_bot, chat_id: str, message_id: int):
+        await asyncio.sleep(self.cfg.delay)
+        try:
+            await tg_bot.delete_message(chat_id=chat_id, message_id=message_id)
+            logger.debug(f"已自动撤回 Telegram 消息: {message_id}")
+        except Exception as e:
+            logger.error(f"撤回 Telegram 消息失败: {e}")
+
     async def handle(self, ctx: OutContext) -> StepResult:
         """对外接口：发消息并撤回"""
         if isinstance(ctx.event, AiocqhttpMessageEvent) and any(
@@ -105,5 +128,37 @@ class RecallStep(BaseStep):
                 return StepResult(
                     msg=f"已启动撤回任务，将在 {self.cfg.delay} 秒后撤回消息"
                 )
+
+        if self._is_tg_platform(ctx.event) and self._is_recall(ctx.chain):
+            try:
+                from telegram.ext import ExtBot
+
+                tg_bot = getattr(ctx.event, "client", None)
+                if not tg_bot or not isinstance(tg_bot, ExtBot):
+                    return StepResult()
+
+                text = self._chain_plain_text(ctx.chain)
+                if not text:
+                    return StepResult()
+
+                chat_id, message_thread_id = self._tg_chat_target(ctx.event)
+                payload = {"chat_id": chat_id, "text": text, "parse_mode": None}
+                if message_thread_id:
+                    payload["message_thread_id"] = message_thread_id
+                sent = await tg_bot.send_message(**payload)
+
+                task = asyncio.create_task(
+                    self._tg_recall_msg(tg_bot, chat_id, int(sent.message_id))
+                )
+                task.add_done_callback(self._remove_task)
+                self.recall_tasks.append(task)
+
+                ctx.event.stop_event()
+                ctx.chain.clear()
+                return StepResult(
+                    msg=f"已启动 Telegram 撤回任务，将在 {self.cfg.delay} 秒后撤回消息"
+                )
+            except Exception as e:
+                return StepResult(ok=False, msg=str(e))
 
         return StepResult()
