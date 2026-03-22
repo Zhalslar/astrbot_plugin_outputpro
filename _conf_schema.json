@@ -305,11 +305,18 @@
     "tts": {
         "description": "【文转语音】",
         "type": "object",
-        "hint": "将消息转为语音。（仅aiocqhttp平台可用）。本插件基于QQ声聊实现TTS, 无需部署, 无需密钥。 开启前, 请先关闭Astrbot自带的TTS功能",
+        "hint": "将消息转为语音。（需启用aiocqhttp平台）。本插件基于QQ声聊实现TTS, 无需部署, 无需密钥。 开启前, 请先关闭Astrbot自带的TTS功能",
         "items": {
+            "tts_provider_id": {
+                "description": "可选TTS模型",
+                "type": "string",
+                "_special": "select_provider_tts",
+                "hint": "留空表示不启用模型，按原QQ中转群方式；选择后优先使用该 TTS Provider 生成语音",
+                "default": ""
+            },
             "group_id": {
                 "description": "中转群群号",
-                "hint": "必填！ 生成AI语音时, 用中转群中转一次后，可以避免显示AI语音",
+                "hint": "需生成AI语音时必填, 用中转群中转一次后，可以避免显示AI语音",
                 "type": "string",
                 "default": ""
             },

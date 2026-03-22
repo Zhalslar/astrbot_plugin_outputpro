@@ -164,6 +164,7 @@ class ReplaceConfig(ConfigNode):
 class TTSConfig(ConfigNode):
     group_id: str
     character_id: str
+    tts_provider_id: str
     threshold: int
     prob: float
 
