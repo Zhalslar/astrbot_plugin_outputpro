@@ -1,15 +1,15 @@
-import random
-from typing import Any
-from urllib.parse import urlparse
 import os
+import random
 import uuid
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
 from astrbot.core.message.components import Plain, Record
-from astrbot.core.provider.provider import TTSProvider
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
+from astrbot.core.provider.provider import TTSProvider
 from astrbot.core.utils.astrbot_path import get_astrbot_temp_path
 from astrbot.core.utils.io import download_file
 from astrbot.core.utils.media_utils import convert_audio_format, convert_audio_to_wav

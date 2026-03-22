@@ -145,7 +145,6 @@ class SplitStep(BaseStep):
 
         return StepResult(msg="分段回复完成")
 
-
     def _calc_delay(self, text: str) -> float:
         """计算延迟(拟人打字)"""
         if not text:
@@ -200,7 +199,6 @@ class SplitStep(BaseStep):
                 wrapped.append(comp)
         return wrapped
 
-
     def _split_chain(self, chain: list[BaseMessageComponent]) -> list[Segment]:
         """
         核心分段逻辑
@@ -222,9 +220,9 @@ class SplitStep(BaseStep):
         def _is_cjk_context(ch: str) -> bool:
             """判断是否为中文字符或中文标点"""
             return (
-                "\u4e00" <= ch <= "\u9fa5" or     # 汉字
-                "\u3000" <= ch <= "\u303f" or     # 中文标点
-                "\uff00" <= ch <= "\uffef"        # 全角符号
+                "\u4e00" <= ch <= "\u9fa5"  # 汉字
+                or "\u3000" <= ch <= "\u303f"  # 中文标点
+                or "\uff00" <= ch <= "\uffef"  # 全角符号
             )
 
         def _merge_space_if_needed(target: Segment, comps: list[BaseMessageComponent]):
@@ -288,27 +286,37 @@ class SplitStep(BaseStep):
                     continue
 
                 # 1. 保护 Reply + At 后的等宽空格
-                if not has_protected and len(pending_prefix) >= 2 and \
-                   isinstance(pending_prefix[0], Reply) and isinstance(pending_prefix[1], At) and \
-                   text.startswith(PROTECTED_SPACE):
+                if (
+                    not has_protected
+                    and len(pending_prefix) >= 2
+                    and isinstance(pending_prefix[0], Reply)
+                    and isinstance(pending_prefix[1], At)
+                    and text.startswith(PROTECTED_SPACE)
+                ):
                     text = text.replace(PROTECTED_SPACE, PLACEHOLDER, 1)
                     has_protected = True
-                
+
                 # 2. 空格保护
                 if " " in text:
+
                     def replace_mixed(m):
                         start = m.start()
                         end = m.end()
-                        prev_ch = text[start-1] if start > 0 else ""
+                        prev_ch = text[start - 1] if start > 0 else ""
                         next_ch = text[end] if end < len(text) else ""
-                        
+
                         # 只有当两侧都是中文(CJK)时，才返回原空格
-                        if prev_ch and next_ch and _is_cjk_context(prev_ch) and _is_cjk_context(next_ch):
+                        if (
+                            prev_ch
+                            and next_ch
+                            and _is_cjk_context(prev_ch)
+                            and _is_cjk_context(next_ch)
+                        ):
                             return m.group()
-                        
+
                         # 其余情况均视为需要保护的间距
                         return MIXED_SPACE_PLACEHOLDER * (end - start)
-                    
+
                     original_text = text
                     text = re.sub(r" +", replace_mixed, text)
                     if text != original_text:

@@ -72,18 +72,24 @@ class ForwardStep(BaseStep):
         from telegram import MessageEntity
         from telegram.ext import ExtBot
 
+        if not messages:
+            return False
+
         tg_bot = getattr(event, "client", None)
         if not tg_bot or not isinstance(tg_bot, ExtBot):
             return False
 
-        chat_id = event.get_group_id() or event.get_sender_id()
-        chat_id = str(chat_id)
-        message_thread_id = None
-        if "#" in chat_id:
-            chat_id, message_thread_id = chat_id.split("#", 1)
+        chat_id = str(event.get_group_id() or event.get_sender_id())
 
-        if not messages:
+        if "#" not in chat_id:
             return False
+
+        chat_id, thread = chat_id.split("#", 1)
+
+        if not thread.isdigit():
+            return False
+
+        message_thread_id = int(thread)
 
         max_len = max(200, int(self._tg_single_message_limit))
         groups = []
