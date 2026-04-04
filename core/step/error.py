@@ -28,12 +28,12 @@ class ErrorStep(BaseStep):
                 return word
         return None
 
-    async def _forward_to_admin(self, ctx: OutContext) -> str:
+    async def _forward_to_admin(self, ctx: OutContext, error_report: str) -> str:
         """
         转发消息给设定的会话
         返回反馈信息（字符串）
         """
-        chain = MessageChain([Plain(ctx.plain)])
+        chain = MessageChain([Plain(error_report)])
         context = self.plugin_config.context
 
         if self.cfg.forward_umo == "admin":
@@ -80,10 +80,8 @@ class ErrorStep(BaseStep):
             f"关键词：{hit_word}\n"
             f"报错原文：{ctx.plain}"
         )
-        ctx.plain = error_report
-
         if self.cfg.forward_umo:
-            forward_msg = await self._forward_to_admin(ctx)
+            forward_msg = await self._forward_to_admin(ctx, error_report)
             msg += f"，{forward_msg}"
 
         ctx.event.set_result(ctx.event.plain_result(self.cfg.custom_msg))
