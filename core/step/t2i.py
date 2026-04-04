@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+import asyncio
 
 from astrbot import logger
 from astrbot.core.message.components import Image, Plain
@@ -20,6 +21,9 @@ class T2IStep(BaseStep):
         self.style = None
 
     async def _load_style(self):
+        """
+        加载 pillowmd 样式
+        """
         try:
             import pillowmd
 
@@ -30,22 +34,25 @@ class T2IStep(BaseStep):
             logger.error(f"加载 pillowmd 失败: {e}")
 
     async def handle(self, ctx: OutContext) -> StepResult:
-        if (
-            isinstance(ctx.chain[-1], Plain)
-            and len(ctx.chain[-1].text) > self.cfg.threshold
-        ):
-            style = self.style or await self._load_style()
-            if style:
-                text = ctx.chain[-1].text
-                img = await style.AioRender(
-                    text=text,
-                    useImageUrl=True,
-                    autoPage=self.cfg.auto_page,
-                )
-                path = img.Save(self.image_cache_dir)
-                ctx.chain[-1] = Image.fromFileSystem(str(path))
-                return StepResult(msg=f"已将文本消息({text[:10]})转化为图片消息")
-        return StepResult()
+
+        # model.py 中定义的 OutContext 里，已经有一个 plain 字段了，
+        # 而且是直接把文本消息内容提取出来的字符串，所以这里直接用 ctx.plain 来判断比较明了简单了
+        if not ctx.plain or len(ctx.plain) <= self.cfg.threshold:
+            return StepResult()
+        style = self.style or await self._load_style()
+        if style:
+            text = ctx.plain
+            img = await style.AioRender(
+                text=text,
+                useImageUrl=True,
+                autoPage=self.cfg.auto_page,
+            )
+
+            #这个pillowmd库的Save方法是阻塞的，所以放到线程池里执行，避免阻塞主线程
+            path = await asyncio.to_thread(img.Save, self.image_cache_dir)
+            ctx.chain[-1] = Image.fromFileSystem(str(path))
+            return StepResult(msg=f"已将文本消息({text[:10]})转化为图片消息")
+    
 
     async def terminate(self):
         if self.cfg.clean_cache and self.image_cache_dir.exists():
