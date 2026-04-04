@@ -20,6 +20,9 @@ class ErrorStep(BaseStep):
         self.admins_id = config.admins_id
 
     def _find_hit_keyword(self, text: str) -> str | None:
+        """
+        在文本中查找是否包含任一报错关键词，返回第一个匹配的关键词
+        """
         for word in self.cfg.keywords:
             if word in text:
                 return word
@@ -70,6 +73,14 @@ class ErrorStep(BaseStep):
             return StepResult()
 
         msg = f"命中报错关键词 {hit_word}"
+        error_report = (
+            f"来自群：{ctx.gid}\n"
+            f"用户：{ctx.uid}\n"
+            f"用户输入：{ctx.event.message_str}\n"
+            f"关键词：{hit_word}\n"
+            f"报错原文：{ctx.plain}"
+        )
+        ctx.plain = error_report
 
         if self.cfg.forward_umo:
             forward_msg = await self._forward_to_admin(ctx)
