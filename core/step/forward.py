@@ -19,20 +19,33 @@ class ForwardStep(BaseStep):
     def __init__(self, config: PluginConfig):
         super().__init__(config)
         self.cfg = config.forward
-        self.node_name: str = self.cfg.node_name
+        self._configured_node_name: str = str(self.cfg.node_name or "").strip()
+        self._bot_name_cache: dict[str, str] = {}
         self._tg_single_message_limit = 3500
 
-    async def _ensure_node_name(self, event: AstrMessageEvent):
-        if not self.node_name and isinstance(event, AiocqhttpMessageEvent):
+    async def _ensure_node_name(self, event: AstrMessageEvent) -> str:
+        if self._configured_node_name:
+            return self._configured_node_name
+
+        bot_id = str(event.get_self_id() or "").strip()
+        if bot_id and bot_id in self._bot_name_cache:
+            return self._bot_name_cache[bot_id]
+
+        node_name = ""
+        if isinstance(event, AiocqhttpMessageEvent):
             try:
                 info = await event.bot.get_login_info()
                 if nickname := info.get("nickname"):
-                    self.node_name = str(nickname)
+                    node_name = str(nickname).strip()
             except Exception:
                 pass
-        if not self.node_name:
-            self.node_name = "AstrBot"
-        return self.node_name
+
+        if not node_name:
+            node_name = "AstrBot"
+
+        if bot_id:
+            self._bot_name_cache[bot_id] = node_name
+        return node_name
 
     def _get_platform_name(self, event: AstrMessageEvent) -> str:
         return str(event.get_platform_name() or "")
@@ -169,14 +182,18 @@ class ForwardStep(BaseStep):
         return sent > 0
 
     async def handle(self, ctx: OutContext) -> StepResult:
-        if not isinstance(ctx.chain[-1], Plain) or len(ctx.chain[-1].text) <= self.cfg.threshold:
+        if (
+            not isinstance(ctx.chain[-1], Plain)
+            or len(ctx.chain[-1].text) <= self.cfg.threshold
+        ):
             return StepResult()
 
         if isinstance(ctx.event, AiocqhttpMessageEvent):
             nodes = Nodes([])
             name = await self._ensure_node_name(ctx.event)
+            uin = str(ctx.event.get_self_id() or ctx.bid)
             content = list(ctx.chain.copy())
-            nodes.nodes.append(Node(uin=ctx.bid, name=name, content=content))
+            nodes.nodes.append(Node(uin=uin, name=name, content=content))
             ctx.chain[:] = [nodes]
             return StepResult(msg="已将消息转换为转发节点")
 
