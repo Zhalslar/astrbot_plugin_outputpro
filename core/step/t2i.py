@@ -52,6 +52,9 @@ class T2IStep(BaseStep):
             path = await asyncio.to_thread(img.Save, self.image_cache_dir)
             ctx.chain[-1] = Image.fromFileSystem(str(path))
             return StepResult(msg=f"已将文本消息({text[:10]})转化为图片消息")
+        else:
+            logger.error("无法加载 pillowmd 样式，无法执行文本转图片")
+            return StepResult(ok=False, msg="pillowmd 样式加载失败")
     
 
     async def terminate(self):
