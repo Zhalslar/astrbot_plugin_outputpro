@@ -34,9 +34,6 @@ class T2IStep(BaseStep):
             logger.error(f"加载 pillowmd 失败: {e}")
 
     async def handle(self, ctx: OutContext) -> StepResult:
-
-        # model.py 中定义的 OutContext 里，已经有一个 plain 字段了，
-        # 而且是直接把文本消息内容提取出来的字符串，所以这里直接用 ctx.plain 来判断比较明了简单了
         if not ctx.plain or len(ctx.plain) <= self.cfg.threshold:
             return StepResult()
         style = self.style or await self._load_style()
@@ -48,14 +45,12 @@ class T2IStep(BaseStep):
                 autoPage=self.cfg.auto_page,
             )
 
-            #这个pillowmd库的Save方法是阻塞的，所以放到线程池里执行，避免阻塞主线程
             path = await asyncio.to_thread(img.Save, self.image_cache_dir)
             ctx.chain[-1] = Image.fromFileSystem(str(path))
             return StepResult(msg=f"已将文本消息({text[:10]})转化为图片消息")
         else:
             logger.error("无法加载 pillowmd 样式，无法执行文本转图片")
             return StepResult(ok=False, msg="pillowmd 样式加载失败")
-    
 
     async def terminate(self):
         if self.cfg.clean_cache and self.image_cache_dir.exists():
