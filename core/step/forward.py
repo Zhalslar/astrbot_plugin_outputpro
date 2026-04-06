@@ -93,16 +93,12 @@ class ForwardStep(BaseStep):
             return False
 
         chat_id = str(event.get_group_id() or event.get_sender_id())
+        message_thread_id = None
 
-        if "#" not in chat_id:
-            return False
-
-        chat_id, thread = chat_id.split("#", 1)
-
-        if not thread.isdigit():
-            return False
-
-        message_thread_id = int(thread)
+        if "#" in chat_id:
+            chat_id, thread = chat_id.split("#", 1)
+            if thread.isdigit():
+                message_thread_id = int(thread)
 
         max_len = max(200, int(self._tg_single_message_limit))
         groups = []

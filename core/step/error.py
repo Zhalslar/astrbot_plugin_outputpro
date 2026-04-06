@@ -73,13 +73,18 @@ class ErrorStep(BaseStep):
             return StepResult()
 
         msg = f"命中报错关键词 {hit_word}"
-        error_report = (
-            f"来自群：{ctx.gid}\n"
-            f"用户：{ctx.uid}\n"
-            f"用户输入：{ctx.event.message_str}\n"
-            f"关键词：{hit_word}\n"
+        
+        parts = []
+        if ctx.gid:
+            parts.append(f"来自群：{ctx.gid}")
+        parts.extend([
+            f"用户：{ctx.uid}",
+            f"用户输入：{ctx.event.message_str}",
+            f"关键词：{hit_word}",
             f"报错原文：{ctx.plain}"
-        )
+        ])
+        error_report = "\n".join(parts)
+
         if self.cfg.forward_umo:
             forward_msg = await self._forward_to_admin(ctx, error_report)
             msg += f"，{forward_msg}"
