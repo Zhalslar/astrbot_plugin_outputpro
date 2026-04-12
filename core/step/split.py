@@ -19,11 +19,10 @@ from ..model import OutContext, StepName, StepResult
 from .base import BaseStep
 
 
-# =========================
-# Segment：段数据结构
-# =========================
 @dataclass
 class Segment:
+    """段数据结构"""
+
     components: list[BaseMessageComponent] = field(default_factory=list)
 
     def append(self, comp: BaseMessageComponent):
@@ -58,9 +57,6 @@ class Segment:
                 break
 
 
-# =========================
-# Tokenizer：负责“语法安全分段”
-# =========================
 @dataclass
 class Token:
     text: str
@@ -69,6 +65,7 @@ class Token:
 
 class TextTokenizer:
     """
+    Tokenizer：负责“语法安全分段”:
     在“括号 / 引号安全”的前提下，识别分段点
     + 内部集成 Kaomoji 保护（不可拆语义块）
     """
@@ -101,9 +98,7 @@ class TextTokenizer:
             "<": ">",
         }
 
-    # =========================
     # Kaomoji 内部处理
-    # =========================
     def _protect_kaomoji(self, text: str):
         protected = text
         mapping: dict[str, str] = {}
@@ -125,9 +120,7 @@ class TextTokenizer:
             text = text.replace(placeholder, kaomoji)
         return text
 
-    # =========================
     # tokenize（核心）
-    # =========================
     def tokenize(self, text: str) -> Iterator[Token]:
         # 先保护 Kaomoji
         text, mapping = self._protect_kaomoji(text)
@@ -193,10 +186,9 @@ class TextTokenizer:
             yield Token(self._restore_kaomoji(buf, mapping), False)
 
 
-# =========================
-# Builder：负责“段拼接 + 状态”
-# =========================
 class SegmentBuilder:
+    """Builder：负责段拼接 + 状态"""
+
     def __init__(self, max_count: int):
         self.max_count = max_count
         self.segments: list[Segment] = []
@@ -257,6 +249,70 @@ class SegmentBuilder:
         return self.segments
 
 
+class TypingController:
+    """统一控制输入状态显示"""
+
+    def supports(self, ctx: OutContext) -> bool:
+        platform = ctx.event.get_platform_name()
+
+        if platform == "telegram":
+            return True
+
+        if platform == "aiocqhttp" and not ctx.event.get_group_id():
+            bot = getattr(ctx.event, "bot", None)
+            api = getattr(bot, "api", None)
+            return bool(api and hasattr(api, "call_action"))
+
+        return False
+
+    async def show_once(self, ctx: OutContext):
+        platform = ctx.event.get_platform_name()
+
+        try:
+            if platform == "telegram":
+                await ctx.event.send_typing()
+                return
+
+            if platform == "aiocqhttp":
+                user_id = str(ctx.event.get_sender_id() or "")
+                bot = getattr(ctx.event, "bot", None)
+                api = getattr(bot, "api", None)
+
+                if api:
+                    await api.call_action(
+                        "set_input_status",
+                        user_id=user_id,
+                        event_type=1,
+                    )
+        except Exception:
+            logger.debug("[Typing] 发送 typing 失败", exc_info=True)
+
+    async def sleep(self, ctx: OutContext, delay: float):
+        """带 typing 的 sleep"""
+        if delay <= 0:
+            return
+
+        if not self.supports(ctx):
+            await asyncio.sleep(delay)
+            return
+
+        # 小延迟：只触发一次
+        if delay <= 1.0:
+            await self.show_once(ctx)
+            await asyncio.sleep(delay)
+            return
+
+        # 大延迟：循环触发
+        interval = min(2.5, max(1.0, delay / 3))
+        remaining = delay
+
+        while remaining > 0:
+            await self.show_once(ctx)
+            sleep_time = min(interval, remaining)
+            await asyncio.sleep(sleep_time)
+            remaining -= sleep_time
+
+
 # =========================
 # SplitStep
 # =========================
@@ -269,6 +325,7 @@ class SplitStep(BaseStep):
         self.cfg = config.split
         self.context = config.context
         self.tokenizer = TextTokenizer(self.cfg.split_re)
+        self.typing = TypingController()
 
     async def handle(self, ctx: OutContext) -> StepResult:
         # 限制平台
@@ -307,7 +364,11 @@ class SplitStep(BaseStep):
                     ctx.event.unified_msg_origin,
                     MessageChain(seg.components),
                 )
-                await asyncio.sleep(self._calc_delay(seg.text))
+                delay = self._calc_delay(seg.text)
+                if self.cfg.show_typing:
+                    await self.typing.sleep(ctx, delay)
+                else:
+                    await asyncio.sleep(delay)
             except Exception as e:
                 logger.error(f"[Splitter] 第{i + 1}段发送失败: {e}")
 
@@ -329,6 +390,22 @@ class SplitStep(BaseStep):
         en = cn / 2
         delay = sum(cn if "\u4e00" <= c <= "\u9fff" else en for c in text)
         return max(1.0, min(20.0, delay))
+
+    def _supports_typing(self, ctx: OutContext) -> bool:
+        """判断是否支持 typing"""
+        platform = ctx.event.get_platform_name()
+
+        # Telegram 原生支持
+        if platform == "telegram":
+            return True
+
+        # QQ 私聊支持
+        if platform == "aiocqhttp" and not ctx.event.get_group_id():
+            bot = getattr(ctx.event, "bot", None)
+            api = getattr(bot, "api", None)
+            return bool(api and hasattr(api, "call_action"))
+
+        return False
 
     # =========================
     # 核心 split
@@ -364,7 +441,6 @@ class SplitStep(BaseStep):
             else:
                 weak_indices.append(i)
         selected = []
-
 
         # 先选强切点，不够就用弱切点补齐
         if len(strong_indices) >= k:

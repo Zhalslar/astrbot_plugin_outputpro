@@ -196,6 +196,7 @@ class SplitConfig(ConfigNode):
     char_list: list[str]
     max_count: int
     typing_cps: float
+    show_typing: bool
 
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)
@@ -216,7 +217,6 @@ class SplitConfig(ConfigNode):
             else:
                 tokens.append(re.escape(ch))
         return f"[{''.join(tokens)}]+"
-
 
 
 class TypoConfig(ConfigNode):

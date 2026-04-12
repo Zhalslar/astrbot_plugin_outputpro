@@ -597,6 +597,12 @@
                     "step": 0.01
                 },
                 "default": 0.3
+            },
+            "show_typing": {
+                "description": "显示正在输入中",
+                "hint": "开启后，打字时会显示“正在输入中...”的状态",
+                "type": "bool",
+                "default": true
             }
         }
     }
