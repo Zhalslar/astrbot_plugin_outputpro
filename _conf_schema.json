@@ -211,9 +211,9 @@
                 "slider": {
                     "min": 0,
                     "max": 1,
-                    "step": 0.001
+                    "step": 0.01
                 },
-                "default": 0.01
+                "default": 0.1
             }
         }
     },
@@ -566,28 +566,37 @@
                 },
                 "default": 0
             },
+            "char_list": {
+                "description": "触发分段的字符",
+                "hint": "文字后面带这些符号就会分段，（换行是\\n，空格是\\s），如：，。？！\\n 。注意：括号/引号等成对符号内部不会触发分段",
+                "type": "list",
+                "default": [
+                    "。",
+                    "？",
+                    "\\n"
+                ]
+            },
             "max_count": {
-                "description": "分段数量上限",
-                "hint": "分段生成的段数超过此数量时，超出部分将合并到最后一段",
+                "description": "最大分段数",
+                "hint": "此处设定每句消息最多可以分成多少段话来发送",
                 "type": "int",
                 "slider": {
                     "min": 1,
-                    "max": 8,
+                    "max": 5,
                     "step": 1
                 },
-                "default": 3
+                "default": 2
             },
-            "extra_separators": {
-                "description": "额外分段符",
-                "hint": "如有特殊需求，可填写额外的单字符分段符。多字符项只取首字符",
-                "type": "list",
-                "default": []
-            },
-            "simulate_typing": {
-                "description": "模拟输入状态",
-                "hint": "在分段回复的间隔中显示“正在输入”。当前支持 aiocqhttp 私聊与 Telegram 平台",
-                "type": "bool",
-                "default": true
+            "typing_cps": {
+                "description": "打字速度",
+                "type": "float",
+                "hint": "每段话之间需要停顿一定时间，用来模拟打字，此处设定每个汉字耗时多少秒（英文字母视为半个汉字）",
+                "slider": {
+                    "min": 0.1,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.3
             }
         }
     }

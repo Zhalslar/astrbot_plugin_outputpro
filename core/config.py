@@ -193,27 +193,29 @@ class RecallConfig(ConfigNode):
 
 class SplitConfig(ConfigNode):
     max_length: int
-    """分段字数上限，超过则不进行分段"""
-
+    char_list: list[str]
     max_count: int
-    """分段数量上限，超出部分合并到最后一段"""
-
-    extra_separators: list[str]
-    """额外分段符，参与分段判断"""
-
-    simulate_typing: bool
-    """是否在分段间隔中模拟正在输入状态"""
+    typing_cps: float
 
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)
+        # 编译好的拆分正则
+        self._split_pattern = self._build_split_pattern()
+        self.split_re = re.compile(self._split_pattern)
+        # 段尾标点清理正则
+        tail_punc = ".,，。、;；:："
+        self.tail_punc_re = re.compile(f"[{re.escape(tail_punc)}]+$")
 
-        self.tail_punc = ".,，。、;；:："
-        self.tail_punc_re = re.compile(f"[{re.escape(self.tail_punc)}]+$")
-        self.typing_jitter: float = 0.30
-        self.pause_prob: float = 0.18
-        self.pause_range: tuple[float, float] = (0.35, 1.10)
-        self.long_pause_prob: float = 0.04
-        self.long_pause_range: tuple[float, float] = (1.6, 3.4)
+    def _build_split_pattern(self) -> str:
+        tokens = []
+        for ch in self.char_list:
+            if ch == "\\n":
+                tokens.append("\n")
+            elif ch == "\\s":
+                tokens.append(r"\s")
+            else:
+                tokens.append(re.escape(ch))
+        return f"[{''.join(tokens)}]+"
 
 
 

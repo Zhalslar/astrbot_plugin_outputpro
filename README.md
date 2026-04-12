@@ -325,4 +325,4 @@ OutputPro 作用于 AstrBot **发送前**的“最后一公里”，把一条消
 
 ## 🎉 参考致谢
 
-本插件的错字模拟与智能分段参考自 [MaiBot](https://github.com/Mai-with-u/MaiBot)，特此感谢！
+本插件的错字模拟参考自 [MaiBot](https://github.com/Mai-with-u/MaiBot)，特此感谢！
