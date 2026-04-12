@@ -201,6 +201,9 @@ class SplitConfig(ConfigNode):
     extra_separators: list[str]
     """额外分段符，参与分段判断"""
 
+    simulate_typing: bool
+    """是否在分段间隔中模拟正在输入状态"""
+
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)
 

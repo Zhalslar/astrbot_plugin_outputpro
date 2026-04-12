@@ -582,6 +582,12 @@
                 "hint": "如有特殊需求，可填写额外的单字符分段符。多字符项只取首字符",
                 "type": "list",
                 "default": []
+            },
+            "simulate_typing": {
+                "description": "模拟输入状态",
+                "hint": "在分段回复的间隔中显示“正在输入”。当前支持 aiocqhttp 私聊与 Telegram 平台",
+                "type": "bool",
+                "default": true
             }
         }
     }

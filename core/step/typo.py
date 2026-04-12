@@ -190,7 +190,7 @@ class ChineseTypoGenerator:
             return False
         return word in self.word_frequency
 
-    def _get_word_homophones(self, word: str) -> list[str]:
+    def _get_word_homophones(self, word: str) -> list[tuple[str, float]]:
         if not self._should_try_word_replacement(word):
             return []
 
@@ -422,11 +422,10 @@ class TypoStep(BaseStep):
 
         if replacement_summaries:
             summary_suffix = ""
-            if replacement_summaries:
-                preview = ", ".join(replacement_summaries[:5])
-                if len(replacement_summaries) > 5:
-                    preview += ", ..."
-                summary_suffix = f"（{preview}）"
+            preview = ", ".join(replacement_summaries[:5])
+            if len(replacement_summaries) > 5:
+                preview += ", ..."
+            summary_suffix = f"（{preview}）"
             return StepResult(
                 msg=f"错字模拟完成，共 {len(replacement_summaries)} 处替换{summary_suffix}"
             )

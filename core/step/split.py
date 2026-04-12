@@ -182,7 +182,9 @@ def _smart_split_sentences(text: str, separators: set[str] | None = None) -> lis
         merged_segments.append((current_content, current_sep))
         idx += 1
 
-    final_sentences = [content for content, _sep in merged_segments if content and content.strip()]
+    final_sentences = [
+        content for content, _sep in merged_segments if content and content.strip()
+    ]
     return final_sentences or ([text] if text else [])
 
 
@@ -244,6 +246,83 @@ class SplitStep(BaseStep):
         super().__init__(config)
         self.cfg = config.split
         self.context = config.context
+
+    @staticmethod
+    def _supports_typing(ctx: OutContext) -> bool:
+        platform_name = ctx.event.get_platform_name()
+        if platform_name == "telegram":
+            return True
+        if platform_name != "aiocqhttp":
+            return False
+        if ctx.event.get_group_id():
+            return False
+        user_id = str(ctx.event.get_sender_id() or "").strip()
+        if not user_id:
+            return False
+        bot = getattr(ctx.event, "bot", None)
+        api = getattr(bot, "api", None)
+        return bool(api and hasattr(api, "call_action"))
+
+    @staticmethod
+    async def _show_typing_once(ctx: OutContext) -> bool:
+        if not SplitStep._supports_typing(ctx):
+            return False
+        if ctx.event.get_platform_name() == "telegram":
+            try:
+                await ctx.event.send_typing()
+                return True
+            except Exception:
+                logger.debug("[Splitter] 调用 Telegram 输入状态失败", exc_info=True)
+                return False
+        user_id = str(ctx.event.get_sender_id() or "").strip()
+        bot = getattr(ctx.event, "bot", None)
+        api = getattr(bot, "api", None)
+        try:
+            await api.call_action(
+                "set_input_status",
+                user_id=user_id,
+                event_type=1,
+            )
+            return True
+        except Exception:
+            logger.debug(
+                f"[Splitter] 调用 QQ 私聊输入状态失败: user_id={user_id}",
+                exc_info=True,
+            )
+            return False
+
+    async def _sleep_with_typing(self, ctx: OutContext, delay: float) -> None:
+        if delay <= 0:
+            return
+        if not bool(getattr(self.cfg, "simulate_typing", True)):
+            await asyncio.sleep(delay)
+            return
+        if not self._supports_typing(ctx):
+            await asyncio.sleep(delay)
+            return
+
+        lead_in = min(0.15, delay * 0.1)
+        tail_out = min(0.25, delay * 0.15)
+        active_window = max(0.0, delay - lead_in - tail_out)
+
+        if lead_in > 0:
+            await asyncio.sleep(lead_in)
+
+        if active_window <= 0.35:
+            await self._show_typing_once(ctx)
+            if active_window > 0:
+                await asyncio.sleep(active_window)
+        else:
+            interval = min(2.5, max(0.9, active_window / 3))
+            remaining = active_window
+            while remaining > 0:
+                await self._show_typing_once(ctx)
+                sleep_time = min(interval, remaining)
+                await asyncio.sleep(sleep_time)
+                remaining -= sleep_time
+
+        if tail_out > 0:
+            await asyncio.sleep(tail_out)
 
     async def handle(self, ctx: OutContext) -> StepResult:
         """
@@ -311,7 +390,7 @@ class SplitStep(BaseStep):
                     MessageChain(send_comps),
                 )
                 delay = self._calc_smart_split_delay(seg.text)
-                await asyncio.sleep(delay)
+                await self._sleep_with_typing(ctx, delay)
             except Exception as e:
                 logger.error(f"[Splitter] 发送分段 {i + 1} 失败: {e}")
 
