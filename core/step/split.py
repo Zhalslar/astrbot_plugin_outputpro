@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -253,37 +253,22 @@ class SegmentBuilder:
 class TypingController:
     """统一控制输入状态显示"""
 
-    def supports(self, ctx: OutContext) -> bool:
-        platform = ctx.event.get_platform_name()
+    supported_platforms = {"telegram", "weixin_oc", "aiocqhttp"}
 
-        if platform == "telegram":
-            return True
-
-        if platform == "aiocqhttp" and not ctx.event.get_group_id():
-            bot = getattr(ctx.event, "bot", None)
-            api = getattr(bot, "api", None)
-            return bool(api and hasattr(api, "call_action"))
-
-        return False
-
-    async def show_once(self, ctx: OutContext):
+    async def _show_once(self, ctx: OutContext):
         platform = ctx.event.get_platform_name()
 
         try:
-            if platform == "telegram":
+            if platform in {"telegram", "weixin_oc"}:
                 await ctx.event.send_typing()
                 return
 
             if platform == "aiocqhttp":
-                user_id = str(ctx.event.get_sender_id() or "")
                 bot = getattr(ctx.event, "bot", None)
                 api = getattr(bot, "api", None)
-
                 if api:
                     await api.call_action(
-                        "set_input_status",
-                        user_id=user_id,
-                        event_type=1,
+                        "set_input_status", user_id=ctx.uid, event_type=1
                     )
         except Exception:
             logger.debug("[Typing] 发送 typing 失败", exc_info=True)
@@ -292,14 +277,14 @@ class TypingController:
         """带 typing 的 sleep"""
         if delay <= 0:
             return
-
-        if not self.supports(ctx):
+        platform_name = ctx.event.get_platform_name()
+        if platform_name not in self.supported_platforms:
             await asyncio.sleep(delay)
             return
 
         # 小延迟：只触发一次
         if delay <= 1.0:
-            await self.show_once(ctx)
+            await self._show_once(ctx)
             await asyncio.sleep(delay)
             return
 
@@ -308,7 +293,7 @@ class TypingController:
         remaining = delay
 
         while remaining > 0:
-            await self.show_once(ctx)
+            await self._show_once(ctx)
             sleep_time = min(interval, remaining)
             await asyncio.sleep(sleep_time)
             remaining -= sleep_time

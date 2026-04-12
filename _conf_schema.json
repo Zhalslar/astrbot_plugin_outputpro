@@ -561,10 +561,10 @@
                 "type": "int",
                 "slider": {
                     "min": 0,
-                    "max": 300,
+                    "max": 600,
                     "step": 1
                 },
-                "default": 0
+                "default": 200
             },
             "char_list": {
                 "description": "触发分段的字符",
@@ -600,7 +600,7 @@
             },
             "show_typing": {
                 "description": "显示正在输入中",
-                "hint": "开启后，打字时会显示“正在输入中...”的状态",
+                "hint": "开启后，打字时会显示“正在输入中...”的状态。仅支持 aiocqhttp、telegram、weixin_oc 消息平台, 其他平台无效",
                 "type": "bool",
                 "default": true
             }
