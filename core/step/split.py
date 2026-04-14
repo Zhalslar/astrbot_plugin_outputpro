@@ -340,7 +340,8 @@ class SplitStep(BaseStep):
         # 后处理
         for seg in segments:
             seg.rstrip_plain()
-            seg.strip_tail_punc(self.cfg.tail_punc_re)
+            if self.cfg.tail_punc_re:
+                seg.strip_tail_punc(self.cfg.tail_punc_re)
 
         if len(segments) <= 1:
             return StepResult()
