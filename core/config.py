@@ -214,7 +214,7 @@ class SplitConfig(ConfigNode):
         # 停顿时间范围
         try:
             self.delay_scope_min, self.delay_scope_max = map(
-                int, self.delay_scope_str.split("~")
+                float, self.delay_scope_str.split("~")
             )
         except Exception:
             self.delay_scope_min, self.delay_scope_max = 1, 20
