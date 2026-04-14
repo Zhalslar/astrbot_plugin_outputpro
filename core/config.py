@@ -196,7 +196,9 @@ class SplitConfig(ConfigNode):
     char_list: list[str]
     max_count: int
     per_char_delay: float
+    delay_scope_str: str
     show_typing: bool
+    tail_punc: list[str]
 
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)
@@ -204,14 +206,25 @@ class SplitConfig(ConfigNode):
         self._split_pattern = self._build_split_pattern()
         self.split_re = re.compile(self._split_pattern)
         # 段尾标点清理正则
-        tail_punc = ".,，。、;；:："
-        self.tail_punc_re = re.compile(f"[{re.escape(tail_punc)}]+$")
+        if self.tail_punc:
+            chars = re.escape("".join(self.tail_punc))
+            self.tail_punc_re = re.compile(f"[{chars}]+$")
+        else:
+            self.tail_punc_re = None
+        # 停顿时间范围
+        try:
+            self.delay_scope_min, self.delay_scope_max = map(
+                int, self.delay_scope_str.split("~")
+            )
+        except Exception:
+            self.delay_scope_min, self.delay_scope_max = 1, 20
 
     def _build_split_pattern(self) -> str:
-        tokens = []
-        char_list = self.char_list or r"(?!x)x"
-        for ch in char_list:
-            if ch == "\\n":
+        if not self.char_list:
+            return r"(?!x)x"
+        tokens: list[str] = []
+        for ch in self.char_list:
+            if ch in ("\\n", "\n"):
                 tokens.append("\n")
             elif ch == "\\s":
                 tokens.append(r"\s")
