@@ -589,8 +589,8 @@
             },
             "per_char_delay": {
                 "description": "打字速度",
-                "type": "float",
                 "hint": "每段话之间需要停顿一定时间，用来模拟打字，此处设定每个汉字耗时多少秒（英文字母视为半个汉字）",
+                "type": "float",
                 "slider": {
                     "min": 0.1,
                     "max": 1,
@@ -598,11 +598,33 @@
                 },
                 "default": 0.3
             },
+            "delay_scope_str": {
+                "description": "停顿时间范围",
+                "hint": "设定每段话之间停顿的时间范围，用来防止短句停顿太短，长句停顿太长。单位为秒，用~分隔",
+                "type": "string",
+                "default": "1~16"
+            },
             "show_typing": {
                 "description": "显示正在输入中",
                 "hint": "开启后，打字时会显示“正在输入中...”的状态。仅支持 aiocqhttp、telegram、weixin_oc 消息平台, 其他平台无效",
                 "type": "bool",
                 "default": true
+            },
+            "tail_punc": {
+                "description": "要清理的句尾标点",
+                "hint": "分段后要清理每句话的句尾标点，此处定义哪些标点需要清理",
+                "type": "list",
+                "default": [
+                    ".",
+                    ",",
+                    "，",
+                    "。",
+                    ";",
+                    "；",
+                    ":",
+                    "：",
+                    "、"
+                ]
             }
         }
     }
