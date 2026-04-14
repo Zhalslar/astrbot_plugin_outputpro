@@ -174,10 +174,15 @@ class TextTokenizer:
             # 分隔符命中
             m = self.pattern.match(text, i)
             if m:
-                buf += m.group()
+                seg = m.group()
+                if seg.strip() == "":
+                    buf += seg
+                    i += len(seg)
+                    continue
+                buf += seg
                 yield Token(self._restore_kaomoji(buf, mapping), True)
                 buf = ""
-                i += len(m.group())
+                i += len(seg)
                 continue
 
             buf += ch
@@ -376,22 +381,22 @@ class SplitStep(BaseStep):
         cn = self.cfg.per_char_delay
         en = cn / 2
         delay = sum(cn if "\u4e00" <= c <= "\u9fff" else en for c in text)
-        return max(1.0, min(20.0, delay))
+        return max(self.cfg.delay_scope_min, min(self.cfg.delay_scope_max, delay))
 
     # =========================
     # 核心 split
     # =========================
-    def _select_split_points(self, tokens: list[Token]) -> set[int]:
+    def _select_split_points(self, tokens: list[Token], min_len: int = 2) -> set[int]:
         """
         选切点（最多 max_count 段 → k = max_count-1 个切点）
 
         规则：
         1. 优先使用语义切点（is_split）
         2. 按累计长度均分选择切点
-        3. 过滤：避免产生 < 2 字的短段
+        3. 过滤：避免产生过短段
         """
 
-        split_idx = [i for i, t in enumerate(tokens) if t.is_split]
+        split_idx = [i for i, t in enumerate(tokens) if t.is_split and t.text.strip()]
         if not split_idx:
             return set()
 
@@ -403,7 +408,7 @@ class SplitStep(BaseStep):
         if k <= 0:
             return set()
 
-        # ---------- 1. 长度均分选点 ----------
+        # 长度均分选点
         lengths = [len(t.text) for t in tokens]
         total = sum(lengths)
         targets = [total * i / max_count for i in range(1, max_count)]
@@ -411,8 +416,8 @@ class SplitStep(BaseStep):
         raw = set()
         acc, ti = 0, 0
 
-        for i, l in enumerate(lengths):
-            acc += l
+        for i, le in enumerate(lengths):
+            acc += le
             if tokens[i].is_split:
                 while ti < k and acc >= targets[ti]:
                     raw.add(i)
@@ -421,13 +426,12 @@ class SplitStep(BaseStep):
         if not raw:
             return set()
 
-        # ---------- 2. 最小段长度过滤 ----------
-        min_len = 2
+        # 最小段长度过滤
         final = set()
         last = -1
 
-        def seg_len(l: int, r: int) -> int:
-            return sum(len(t.text) for t in tokens[l:r])
+        def seg_len(le: int, r: int) -> int:
+            return sum(len(t.text) for t in tokens[le:r])
 
         for idx in sorted(raw):
             if seg_len(last + 1, idx + 1) < min_len:
@@ -435,7 +439,7 @@ class SplitStep(BaseStep):
             final.add(idx)
             last = idx
 
-        # ---------- 3. 修正尾段 ----------
+        # 修正尾段 ----------
         if final:
             tail_len = seg_len(last + 1, len(tokens))
             if tail_len < min_len:
