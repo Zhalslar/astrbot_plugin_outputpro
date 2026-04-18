@@ -64,7 +64,9 @@ class OutputPlugin(Star):
             event,
             tts_instance,
         )
-        self._set_event_extra(event, "_outputpro_preserve_emotion_tag", preserve_emotion_tag)
+        self._set_event_extra(
+            event, "_outputpro_preserve_emotion_tag", preserve_emotion_tag
+        )
         self._set_event_extra(event, "_outputpro_preserve_reason", preserve_reason)
 
         result_chain = getattr(response, "result_chain", None)
@@ -84,7 +86,9 @@ class OutputPlugin(Star):
                 if tts_instance is not None:
                     transform_text_in_chain(
                         chain,
-                        lambda value: self._sanitize_with_tts_plugin(tts_instance, value),
+                        lambda value: self._sanitize_with_tts_plugin(
+                            tts_instance, value
+                        ),
                     )
                 sanitize_chain(
                     chain,
@@ -202,7 +206,9 @@ class OutputPlugin(Star):
 
         return False
 
-    def _resolve_emotion_tag_policy(self, event: AstrMessageEvent, tts_instance) -> tuple[bool, str]:
+    def _resolve_emotion_tag_policy(
+        self, event: AstrMessageEvent, tts_instance
+    ) -> tuple[bool, str]:
         marker_mode = self._get_tts_output_marker_mode(event)
         if marker_mode == TTS_OUTPUT_MARKER_MODE_PRESERVE:
             return True, "tts_marker_mode_preserve"
@@ -343,7 +349,9 @@ class OutputPlugin(Star):
         )
         return self._restore_tts_controls(cleaned_text, placeholders)
 
-    def _protect_tts_controls(self, tts_instance, text: str) -> tuple[str, dict[str, str]]:
+    def _protect_tts_controls(
+        self, tts_instance, text: str
+    ) -> tuple[str, dict[str, str]]:
         placeholders: dict[str, str] = {}
         counter = 0
 
@@ -354,7 +362,9 @@ class OutputPlugin(Star):
             placeholders[token] = raw
             return token
 
-        protected_text = TTS_PAUSE_TAG_RE.sub(lambda match: _stash(match.group(0)), text)
+        protected_text = TTS_PAUSE_TAG_RE.sub(
+            lambda match: _stash(match.group(0)), text
+        )
         expressive_tags = self._get_tts_expressive_tags(tts_instance)
         if expressive_tags:
             voice_tag_re = re.compile(

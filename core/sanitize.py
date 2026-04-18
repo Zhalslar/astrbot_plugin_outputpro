@@ -157,7 +157,9 @@ def _remove_generic_tags(
 ) -> str:
     current = text
     for _ in range(8):
-        matches = [match.group("tag") for match in GENERIC_TAG_PATTERN.finditer(current)]
+        matches = [
+            match.group("tag") for match in GENERIC_TAG_PATTERN.finditer(current)
+        ]
         if not matches:
             break
         report.add_removed(label, matches)

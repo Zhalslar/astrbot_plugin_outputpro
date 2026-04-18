@@ -16,9 +16,7 @@ class ReplaceStep(BaseStep):
         ctx.plain = collect_visible_text(ctx.chain)
 
         if changes:
-            msg = "replaced ->\n" + "\n".join(
-                f"{old} -> {new}" for old, new in changes
-            )
+            msg = "replaced ->\n" + "\n".join(f"{old} -> {new}" for old, new in changes)
             return StepResult(msg=msg)
 
         return StepResult()
