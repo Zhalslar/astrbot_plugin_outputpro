@@ -45,6 +45,20 @@ class Segment:
         """是否为空段（无文本、无媒体）"""
         return not self.text.strip() and not self.has_media
 
+    def lstrip_plain(self):
+        """去除段首 Plain 的前导空白。"""
+        for comp in self.components:
+            if isinstance(comp, Plain):
+                comp.text = comp.text.lstrip()
+                break
+
+    def rstrip_plain(self):
+        """去除段尾 Plain 的尾随空白。"""
+        for comp in reversed(self.components):
+            if isinstance(comp, Plain):
+                comp.text = comp.text.rstrip()
+                break
+
 
 class SplitStep(BaseStep):
     name = StepName.SPLIT
@@ -82,6 +96,11 @@ class SplitStep(BaseStep):
         最后一段会回填到原 chain 中。
         """
         segments = self._split_chain(ctx.chain)
+
+        # 清理每个分段边界的空白，避免分段消息开头出现多余空格/换行。
+        for seg in segments:
+            seg.lstrip_plain()
+            seg.rstrip_plain()
 
         if len(segments) <= 1:
             return StepResult()
