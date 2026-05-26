@@ -43,6 +43,25 @@ class Segment:
     def is_empty(self) -> bool:
         return not self.text.strip() and not self.has_media
 
+    def lstrip_plain(self):
+        """去除 Plain 头部空白，但保留 At 后的一个空格"""
+        prev_is_at = False
+        for c in self.components:
+            if isinstance(c, At):
+                prev_is_at = True
+                continue
+            if isinstance(c, Plain):
+                original = c.text
+                stripped = original.lstrip()
+                # At 后保留一个空格
+                if prev_is_at and original[:1].isspace() and stripped:
+                    c.text = " " + stripped
+                else:
+                    c.text = stripped
+                break
+            # 遇到别的组件就停止
+            break
+
     def rstrip_plain(self):
         """去除 Plain 末尾空白"""
         for c in self.components:
@@ -61,6 +80,7 @@ class Segment:
 class Token:
     text: str
     is_split: bool  # 是否触发 flush
+    priority: int = 10**9
 
 
 class TextTokenizer:
@@ -83,8 +103,9 @@ class TextTokenizer:
         r"([\u25b3\u25a6\u30fb\u30ef\^><\u2267\u2665\uff5e\uff40\u7c32\u2764]{2,15})"
     )
 
-    def __init__(self, pattern: re.Pattern[str]):
+    def __init__(self, pattern: re.Pattern[str], split_priority: dict[str, int]):
         self.pattern = pattern
+        self.split_priority = split_priority
         self.quote_chars = {'"', "'", "`"}
         self.pair_map = {
             "“": "”",
@@ -120,6 +141,12 @@ class TextTokenizer:
         for placeholder, kaomoji in mapping.items():
             text = text.replace(placeholder, kaomoji)
         return text
+
+    def _get_split_priority(self, text: str) -> int:
+        priority = 10**9
+        for ch in text:
+            priority = min(priority, self.split_priority.get(ch, 10**9))
+        return priority
 
     # tokenize（核心）
     def tokenize(self, text: str) -> Iterator[Token]:
@@ -180,7 +207,11 @@ class TextTokenizer:
                     i += len(seg)
                     continue
                 buf += seg
-                yield Token(self._restore_kaomoji(buf, mapping), True)
+                yield Token(
+                    self._restore_kaomoji(buf, mapping),
+                    True,
+                    self._get_split_priority(seg),
+                )
                 buf = ""
                 i += len(seg)
                 continue
@@ -193,66 +224,36 @@ class TextTokenizer:
 
 
 class SegmentBuilder:
-    """Builder：负责段拼接 + 状态"""
-
-    def __init__(self, max_count: int):
-        self.max_count = max_count
+    def __init__(self):
         self.segments: list[Segment] = []
         self.current = Segment()
         self.pending_prefix: list[BaseMessageComponent] = []
-        self.exhausted = False
 
-    def add_prefix(self, comp: BaseMessageComponent):
-        """缓存 Reply / At"""
+    def add_prefix(self, comp):
         self.pending_prefix.append(comp)
 
-    def attach_pending(self, target: Segment):
-        """挂载 prefix"""
+    def append(self, comps):
         if self.pending_prefix:
-            target.extend(self.pending_prefix)
+            self.current.components = self.pending_prefix + self.current.components
             self.pending_prefix.clear()
 
-    def append(self, comps: list[BaseMessageComponent]):
-        """追加到当前段"""
-        if self.exhausted:
-            self.append_tail(comps)
-            return
-
-        self.attach_pending(self.current)
         self.current.extend(comps)
 
-    def append_tail(self, comps: list[BaseMessageComponent]):
-        """拼到最后一段（超限时使用）"""
-        if self.segments:
-            self._merge(self.segments[-1], comps)
-            self.segments[-1].extend(comps)
-        else:
-            self.current.extend(comps)
-
     def flush(self):
-        """提交当前段"""
-        if not self.current.components:
+        if self.pending_prefix and not self.current.components:
             return
 
-        if self.max_count > 0 and len(self.segments) >= self.max_count:
-            self.exhausted = True
-            self.append_tail(self.current.components)
-        else:
-            self.segments.append(self.current)
+        if self.pending_prefix:
+            self.current.components = self.pending_prefix + self.current.components
+            self.pending_prefix.clear()
 
-            if self.max_count > 0 and len(self.segments) >= self.max_count:
-                self.exhausted = True
+        if self.current.components:
+            self.segments.append(self.current)
 
         self.current = Segment()
 
-    def _merge(self, target: Segment, comps):
-        """必要时补空格"""
-        if target.components and comps and isinstance(comps[0], Plain):
-            comps[0].text = " " + comps[0].text
-
     def finalize(self):
-        if self.current.components:
-            self.flush()
+        self.flush()
         return self.segments
 
 
@@ -316,7 +317,7 @@ class SplitStep(BaseStep):
         super().__init__(config)
         self.cfg = config.split
         self.context = config.context
-        self.tokenizer = TextTokenizer(self.cfg.split_re)
+        self.tokenizer = TextTokenizer(self.cfg.split_re, self.cfg.split_priority)
         self.typing = TypingController()
 
     async def handle(self, ctx: OutContext) -> StepResult:
@@ -335,10 +336,11 @@ class SplitStep(BaseStep):
                 return StepResult()
 
         # 分段
-        segments = self._split_chain(ctx.chain)
+        segments = self._split_chain(ctx.chain, self.cfg.max_count)
 
         # 后处理
         for seg in segments:
+            seg.lstrip_plain()
             seg.rstrip_plain()
             if self.cfg.tail_punc_re:
                 seg.strip_tail_punc(self.cfg.tail_punc_re)
@@ -357,7 +359,12 @@ class SplitStep(BaseStep):
                     ctx.event.unified_msg_origin,
                     MessageChain(seg.components),
                 )
-                delay = self._calc_delay(seg.text)
+                delay = self._calc_delay(
+                    seg.text,
+                    self.cfg.per_char_delay,
+                    self.cfg.min_delay,
+                    self.cfg.max_delay,
+                )
                 if self.cfg.show_typing:
                     await self.typing.sleep(ctx, delay)
                 else:
@@ -376,18 +383,24 @@ class SplitStep(BaseStep):
     # 工具方法
     # =========================
 
-    def _calc_delay(self, text: str) -> float:
+    def _calc_delay(
+        self,
+        text: str,
+        per_char_delay: float = 0.3,
+        min_delay: float = 0.1,
+        max_delay: float = 10,
+    ) -> float:
         if not text:
             return 0.0
-        cn = self.cfg.per_char_delay
+        cn = per_char_delay
         en = cn / 2
         delay = sum(cn if "\u4e00" <= c <= "\u9fff" else en for c in text)
-        return max(self.cfg.delay_scope_min, min(self.cfg.delay_scope_max, delay))
+        return max(min_delay, min(max_delay, delay))
 
     # =========================
     # 核心 split
     # =========================
-    def _select_split_points(self, tokens: list[Token]) -> set[int]:
+    def _select_split_points(self, tokens: list[Token], max_count: int) -> set[int]:
         """
         选切点（最多 max_count 段 → k = max_count-1 个切点）
         规则：
@@ -399,7 +412,6 @@ class SplitStep(BaseStep):
         if not split_idx:
             return set()
 
-        max_count = self.cfg.max_count
         if max_count <= 0 or len(split_idx) <= max_count - 1:
             return set(split_idx)
 
@@ -407,63 +419,73 @@ class SplitStep(BaseStep):
         if k <= 0:
             return set()
 
-        # 长度均分选点
         lengths = [len(t.text) for t in tokens]
         total = sum(lengths)
         targets = [total * i / max_count for i in range(1, max_count)]
 
-        raw = set()
-        acc, ti = 0, 0
-
+        split_points: list[tuple[int, int, int]] = []
+        acc = 0
         for i, le in enumerate(lengths):
             acc += le
             if tokens[i].is_split:
-                while ti < k and acc >= targets[ti]:
-                    raw.add(i)
-                    ti += 1
+                split_points.append((i, acc, tokens[i].priority))
 
-        return raw
+        selected: set[int] = set()
+        cursor = 0
+        window: list[tuple[int, int, int]] = []
 
-    def _split_chain(self, chain: list[BaseMessageComponent]) -> list[Segment]:
-        """
-        流程：
-        1. 遍历 chain
-        2. Plain → tokenize → 收集切点 → 策略筛选
-        3. builder 负责拼段
-        """
-        builder = SegmentBuilder(self.cfg.max_count)
+        for target in targets:
+            while cursor < len(split_points) and split_points[cursor][1] < target:
+                window.append(split_points[cursor])
+                cursor += 1
+            if cursor < len(split_points):
+                window.append(split_points[cursor])
+                cursor += 1
+            if not window:
+                break
+
+            best = min(window, key=lambda item: (item[2], abs(item[1] - target), item[0]))
+            selected.add(best[0])
+            window = [item for item in window if item[0] > best[0]]
+
+        return selected
+
+    def _split_chain(
+        self, chain: list[BaseMessageComponent], max_count: int
+    ) -> list[Segment]:
+        builder = SegmentBuilder()
 
         for comp in chain:
-            # 引用、艾特前置
+            # Reply / At 前置
             if isinstance(comp, (Reply, At)):
                 builder.add_prefix(comp)
                 continue
 
-            # 文本处理
+            # 文本
             if isinstance(comp, Plain):
                 text = comp.text or ""
                 if not text:
                     continue
+
                 tokens = list(self.tokenizer.tokenize(text))
-                selected = self._select_split_points(tokens)
+                selected = self._select_split_points(tokens, max_count)
+
                 for i, token in enumerate(tokens):
                     builder.append([Plain(token.text)])
+
                     if i in selected:
                         builder.flush()
 
                 continue
 
-            # 图片 / 表情：跟随当前段
+            # Image / Face: 随当前段
             if isinstance(comp, (Image, Face)):
                 builder.append([comp])
                 continue
 
-            # 其他组件：独立成段
+            # 其他组件：强制断段
             builder.flush()
-            seg = Segment()
-            builder.attach_pending(seg)
-            seg.append(comp)
-            builder.current = seg
+            builder.add_prefix(comp)
             builder.flush()
 
         return builder.finalize()

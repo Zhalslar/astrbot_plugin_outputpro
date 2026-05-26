@@ -47,12 +47,6 @@ class ForwardStep(BaseStep):
             self._bot_name_cache[bot_id] = node_name
         return node_name
 
-    def _get_platform_name(self, event: AstrMessageEvent) -> str:
-        return str(event.get_platform_name() or "")
-
-    def _is_tg_platform(self, event: AstrMessageEvent) -> bool:
-        return self._get_platform_name(event) == "telegram"
-
     def _tg_utf16_len(self, text: str) -> int:
         if not text:
             return 0
@@ -179,27 +173,28 @@ class ForwardStep(BaseStep):
 
     async def handle(self, ctx: OutContext) -> StepResult:
         if (
-            not isinstance(ctx.chain[-1], Plain)
-            or len(ctx.chain[-1].text) <= self.cfg.threshold
+            ctx.chain
+            and isinstance(ctx.chain[-1], Plain)
+            and len(ctx.chain[-1].text) <= self.cfg.threshold
         ):
-            return StepResult()
+            platform_name = ctx.event.get_platform_name()
 
-        if isinstance(ctx.event, AiocqhttpMessageEvent):
-            nodes = Nodes([])
-            name = await self._ensure_node_name(ctx.event)
-            uin = str(ctx.event.get_self_id() or ctx.bid)
-            content = list(ctx.chain.copy())
-            nodes.nodes.append(Node(uin=uin, name=name, content=content))
-            ctx.chain[:] = [nodes]
-            return StepResult(msg="已将消息转换为转发节点")
+            if platform_name == "aiocqhttp":
+                nodes = Nodes([])
+                name = await self._ensure_node_name(ctx.event)
+                uin = str(ctx.event.get_self_id() or ctx.bid)
+                content = list(ctx.chain.copy())
+                nodes.nodes.append(Node(uin=uin, name=name, content=content))
+                ctx.chain[:] = [nodes]
+                return StepResult(msg="已将消息转换为转发节点")
 
-        if self._is_tg_platform(ctx.event):
-            text = ctx.chain[-1].text
-            messages = self._tg_split_by_utf16(text, self._tg_single_message_limit)
-            success = await self._send_tg_expandable_blocks(ctx.event, messages)
-            if success:
-                ctx.event.stop_event()
-                ctx.chain.clear()
-                return StepResult(msg="已使用 Telegram 折叠引用发送")
+            elif platform_name == "telegram":
+                text = ctx.chain[-1].text
+                messages = self._tg_split_by_utf16(text, self._tg_single_message_limit)
+                success = await self._send_tg_expandable_blocks(ctx.event, messages)
+                if success:
+                    ctx.event.stop_event()
+                    ctx.chain.clear()
+                    return StepResult(msg="已使用 Telegram 折叠引用发送")
 
         return StepResult()

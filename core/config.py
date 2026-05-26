@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
 from types import MappingProxyType, UnionType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
-from astrbot.core.star.star_tools import StarTools
+from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 
 class ConfigNode:
@@ -205,6 +206,7 @@ class SplitConfig(ConfigNode):
         # 编译好的拆分正则
         self._split_pattern = self._build_split_pattern()
         self.split_re = re.compile(self._split_pattern)
+        self.split_priority = self._build_split_priority()
         # 段尾标点清理正则
         if self.tail_punc:
             chars = re.escape("".join(self.tail_punc))
@@ -213,11 +215,11 @@ class SplitConfig(ConfigNode):
             self.tail_punc_re = None
         # 停顿时间范围
         try:
-            self.delay_scope_min, self.delay_scope_max = map(
+            self.min_delay, self.max_delay = map(
                 float, self.delay_scope_str.split("~")
             )
         except Exception:
-            self.delay_scope_min, self.delay_scope_max = 1, 20
+            self.min_delay, self.max_delay = 1, 20
 
     def _build_split_pattern(self) -> str:
         if not self.char_list:
@@ -231,6 +233,17 @@ class SplitConfig(ConfigNode):
             else:
                 tokens.append(re.escape(ch))
         return f"[{''.join(tokens)}]+"
+
+    def _build_split_priority(self) -> dict[str, int]:
+        priority: dict[str, int] = {}
+        for idx, ch in enumerate(self.char_list):
+            if ch == "\\n":
+                priority.setdefault("\n", idx)
+            elif ch == "\\s":
+                priority.setdefault(" ", idx)
+            else:
+                priority.setdefault(ch, idx)
+        return priority
 
 
 class TypoConfig(ConfigNode):
@@ -256,8 +269,10 @@ class PluginConfig(ConfigNode):
     recall: RecallConfig
     split: SplitConfig
 
+    _plugin_name: str = "astrbot_plugin_outputpro"
+
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
         self.admins_id: list[str] = context.get_config().get("admins_id", [])
-        self.data_dir = StarTools.get_data_dir("astrbot_plugin_outputpro")
+        self.data_dir = Path(get_astrbot_data_path()) / self._plugin_name
