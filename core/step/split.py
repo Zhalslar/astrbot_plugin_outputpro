@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -444,7 +444,9 @@ class SplitStep(BaseStep):
             if not window:
                 break
 
-            best = min(window, key=lambda item: (item[2], abs(item[1] - target), item[0]))
+            best = min(
+                window, key=lambda item: (item[2], abs(item[1] - target), item[0])
+            )
             selected.add(best[0])
             window = [item for item in window if item[0] > best[0]]
 
@@ -485,7 +487,7 @@ class SplitStep(BaseStep):
 
             # 其他组件：强制断段
             builder.flush()
-            builder.add_prefix(comp)
+            builder.append([comp])
             builder.flush()
 
         return builder.finalize()

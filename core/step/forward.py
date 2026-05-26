@@ -175,7 +175,7 @@ class ForwardStep(BaseStep):
         if (
             ctx.chain
             and isinstance(ctx.chain[-1], Plain)
-            and len(ctx.chain[-1].text) <= self.cfg.threshold
+            and len(ctx.chain[-1].text) > self.cfg.threshold
         ):
             platform_name = ctx.event.get_platform_name()
 
