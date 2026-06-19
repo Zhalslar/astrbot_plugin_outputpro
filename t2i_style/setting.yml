@@ -1,0 +1,69 @@
+name: "notebook-maple"
+intr: "Notebook paper style with Maple CN font"
+author: "Codex"
+version: "1.0"
+cost: 0
+selling: false
+
+fontSize: 28
+title1FontSize: 58
+title2FontSize: 46
+title3FontSize: 36
+expressionFontSizeRate: 0.88
+codeBlockFontSize: 24
+
+rd: 92
+ld: 116
+ud: 86
+dd: 78
+xSizeMax: 1180
+
+font: "MapleMono-NF-CN-Regular.ttf"
+titleFont: "MapleMono-NF-CN-SemiBold.ttf"
+expressionFont: "MapleMono-NF-CN-Regular.ttf"
+codeFont: "MapleMono-NF-CN-Regular.ttf"
+secondFonts: ["MapleMono-NF-CN-Regular.ttf", "Symbola_hint.ttf", "DroidSansFallbackFull.ttf", "DejaVuSansMono.ttf"]
+
+codeBlockLRDistance: 28
+codeBlockUDDistance: 24
+formLineDistance: 18
+lineDistance: 14
+citeDistance: 28
+
+pageLineColor: [214, 202, 181]
+pageLineStyle: "full_line"
+unorderedListDotColor: [54, 83, 121]
+orderedListDotColor: [54, 83, 121]
+orderedListNumberColor: [54, 83, 121]
+
+citeUnderpainting: [255, 248, 223, 210]
+citeSplitLineColor: [198, 76, 91]
+codeBlockUnderpainting: [45, 50, 58, 238]
+codeBlockTitleColor: [250, 228, 170]
+formLineColor: [190, 178, 154]
+formTextColor: [42, 44, 47]
+formUnderpainting: [255, 253, 244, 180]
+formTitleUnderpainting: [247, 235, 204, 220]
+
+textColor: [42, 44, 47]
+textGradientEndColor: [88, 70, 48]
+linkColor: [30, 93, 153]
+expressionUnderpainting: [255, 243, 201, 225]
+insertCodeUnderpating: [238, 226, 203, 230]
+idlineColor: [214, 202, 181]
+expressionTextColor: [93, 65, 135]
+insertCodeTextColor: [142, 56, 50]
+codeBlockTextColor: [246, 244, 238]
+
+remarkColor: [118, 103, 82]
+remarkFontSize: 18
+remarkCoordinate: [12, 10]
+
+fontYCorrect:
+  MapleMono-NF-CN-Regular.ttf: +2
+  MapleMono-NF-CN-SemiBold.ttf: +2
+  Symbola_hint.ttf: +0
+  DroidSansFallbackFull.ttf: +6
+  DejaVuSansMono.ttf: +4
+
+backgroudFunc: "modern_clear_background"

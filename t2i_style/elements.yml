@@ -1,0 +1,30 @@
+enable: false
+
+background:
+  mode: 0
+  data:
+    img: "background.png"
+    lock: false
+    mode: 0
+
+decorates:
+  top:
+    left-up: []
+    left: []
+    left-down: []
+    up: []
+    down: []
+    right-up: []
+    right: []
+    right-down: []
+    middle: []
+  bottom:
+    left-up: []
+    left: []
+    left-down: []
+    up: []
+    down: []
+    right-up: []
+    right: []
+    right-down: []
+    middle: []
