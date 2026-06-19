@@ -18,11 +18,11 @@ ud: 86
 dd: 78
 xSizeMax: 1180
 
-font: "MapleMono-NF-CN-Regular.ttf"
-titleFont: "MapleMono-NF-CN-SemiBold.ttf"
-expressionFont: "MapleMono-NF-CN-Regular.ttf"
-codeFont: "MapleMono-NF-CN-Regular.ttf"
-secondFonts: ["MapleMono-NF-CN-Regular.ttf", "Symbola_hint.ttf", "DroidSansFallbackFull.ttf", "DejaVuSansMono.ttf"]
+font: "OPPOSans-Regular.ttf"
+titleFont: "OPPOSans-Regular.ttf"
+expressionFont: "OPPOSans-Regular.ttf"
+codeFont: "OPPOSans-Regular.ttf"
+secondFonts: ["DejaVuSansMono.ttf"]
 
 codeBlockLRDistance: 28
 codeBlockUDDistance: 24
