@@ -49,11 +49,12 @@ class Segment:
         for c in self.components:
             if isinstance(c, At):
                 prev_is_at = True
+                continue
             if isinstance(c, Plain):
-                original = c.text
-                stripped = original.strip()
+                if not c.text.replace("\u200b", "").strip():
+                    continue
+                stripped = c.text.strip()
                 c.text = " " + stripped if prev_is_at else stripped
-                break
 
     def strip_tail_punc(self, pattern):
         """去掉尾部标点（仅最后一个 Plain 生效）"""
