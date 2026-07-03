@@ -49,7 +49,6 @@ class Segment:
         for c in self.components:
             if isinstance(c, At):
                 prev_is_at = True
-                continue
             if isinstance(c, Plain):
                 original = c.text
                 stripped = original.strip()
