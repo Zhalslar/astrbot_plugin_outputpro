@@ -41,20 +41,32 @@ class Segment:
 
     @property
     def is_empty(self) -> bool:
-        return not self.text.strip() and not self.has_media
+        if any(isinstance(c, (Image, Face)) for c in self.components):
+            return False
+        visible = "".join(
+            c.text for c in self.components if isinstance(c, Plain)
+        ).strip("\u200b \t\n\r")
+        return not visible
 
     def strip_plain(self):
         """去除 Plain 首尾空白，但保留 At 后的一个空格"""
         prev_is_at = False
+        has_zero_width_prefix = False
         for c in self.components:
             if isinstance(c, At):
                 prev_is_at = True
                 continue
             if isinstance(c, Plain):
                 if not c.text.replace("\u200b", "").strip():
+                    if "\u200b" in c.text:
+                        has_zero_width_prefix = True
                     continue
                 stripped = c.text.strip()
-                c.text = " " + stripped if prev_is_at else stripped
+                c.text = (
+                    " " + stripped
+                    if prev_is_at and not has_zero_width_prefix
+                    else stripped
+                )
 
     def strip_tail_punc(self, pattern):
         """去掉尾部标点（仅最后一个 Plain 生效）"""
@@ -215,29 +227,23 @@ class SegmentBuilder:
     def __init__(self):
         self.segments: list[Segment] = []
         self.current = Segment()
-        self.pending_prefix: list[BaseMessageComponent] = []
+        self.saved_prefix: list[BaseMessageComponent] = []
 
     def add_prefix(self, comp):
-        self.pending_prefix.append(comp)
+        self.saved_prefix.append(comp)
+
+    def _apply_prefix(self):
+        if self.saved_prefix and not self.current.components:
+            self.current.components = list(self.saved_prefix) + self.current.components
 
     def append(self, comps):
-        if self.pending_prefix:
-            self.current.components = self.pending_prefix + self.current.components
-            self.pending_prefix.clear()
-
+        self._apply_prefix()
         self.current.extend(comps)
 
     def flush(self):
-        if self.pending_prefix and not self.current.components:
-            return
-
-        if self.pending_prefix:
-            self.current.components = self.pending_prefix + self.current.components
-            self.pending_prefix.clear()
-
+        self._apply_prefix()
         if self.current.components:
             self.segments.append(self.current)
-
         self.current = Segment()
 
     def finalize(self):
@@ -333,8 +339,8 @@ class SplitStep(BaseStep):
                 seg.strip_tail_punc(self.cfg.tail_punc_re)
 
         if len(segments) <= 1:
-            if segments:
-                ctx.chain.clear()
+            ctx.chain.clear()
+            if segments and not segments[0].is_empty:
                 ctx.chain.extend(segments[0].components)
             return StepResult()
 
@@ -456,7 +462,7 @@ class SplitStep(BaseStep):
             # 文本
             if isinstance(comp, Plain):
                 text = comp.text or ""
-                if not text:
+                if not text or not text.strip("\u200b \t\n\r"):
                     continue
 
                 tokens = list(self.tokenizer.tokenize(text))

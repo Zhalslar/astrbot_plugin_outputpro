@@ -17,6 +17,7 @@ from .base import BaseStep
 
 class AtStep(BaseStep):
     name = StepName.AT
+
     def __init__(self, config: PluginConfig):
         super().__init__(config)
         self.cfg = config.at
@@ -47,14 +48,15 @@ class AtStep(BaseStep):
             if not isinstance(seg, Plain):
                 continue
 
-            if self.cfg.at_str and nickname:
-                # 原地修改
+            if (self.cfg.at_str or not qq) and nickname:
                 seg.text = f"@{nickname} " + seg.text
-            else:
-                # 真 At：插在 Plain 前
+            elif qq:
                 chain.insert(i, At(qq=qq))
                 chain.insert(i + 1, Plain("\u200b"))
-            return
+            else:
+                return False
+            return True
+        return False
 
     # -------------------------
     # 假 at 解析（只读）
