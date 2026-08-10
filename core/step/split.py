@@ -299,7 +299,7 @@ class TypingController:
 # =========================
 class SplitStep(BaseStep):
     name = StepName.SPLIT
-    support_platforms = {"aiocqhttp", "telegram", "lark"}
+    support_platforms = {"aiocqhttp", "telegram", "lark","qq_official", "qq_official_webhook"}
 
     def __init__(self, config: PluginConfig):
         super().__init__(config)
