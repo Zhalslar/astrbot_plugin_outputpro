@@ -4,8 +4,6 @@ import re
 from astrbot.core.message.components import (
     At,
     BaseMessageComponent,
-    Face,
-    Image,
     Plain,
     Reply,
 )
@@ -115,7 +113,7 @@ class AtStep(BaseStep):
         # ===== 2. 智能艾特 =====
         if not (
             self.cfg.at_prob > 0
-            and all(isinstance(c, Plain | Image | Face | At | Reply) for c in ctx.chain)
+            and all(isinstance(c, Plain | At | Reply) for c in ctx.chain)
         ):
             return StepResult()
 
