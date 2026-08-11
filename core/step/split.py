@@ -41,20 +41,31 @@ class Segment:
 
     @property
     def is_empty(self) -> bool:
-        return not self.text.strip() and not self.has_media
+        return not self.has_media or all(
+            isinstance(c, (At, Reply)) for c in self.components
+        )
 
     def strip_plain(self):
         """去除 Plain 首尾空白，但保留 At 后的一个空格"""
         prev_is_at = False
+        new_components = []
         for c in self.components:
             if isinstance(c, At):
                 prev_is_at = True
+                new_components.append(c)
                 continue
             if isinstance(c, Plain):
+                # 真正丢弃全空白 Plain
                 if not c.text.replace("\u200b", "").strip():
+                    prev_is_at = False
                     continue
                 stripped = c.text.strip()
                 c.text = " " + stripped if prev_is_at else stripped
+                new_components.append(c)
+            else:
+                new_components.append(c)
+            prev_is_at = False
+        self.components = new_components
 
     def strip_tail_punc(self, pattern):
         """去掉尾部标点（仅最后一个 Plain 生效）"""
@@ -299,7 +310,13 @@ class TypingController:
 # =========================
 class SplitStep(BaseStep):
     name = StepName.SPLIT
-    support_platforms = {"aiocqhttp", "telegram", "lark","qq_official", "qq_official_webhook"}
+    support_platforms = {
+        "aiocqhttp",
+        "telegram",
+        "lark",
+        "qq_official",
+        "qq_official_webhook",
+    }
 
     def __init__(self, config: PluginConfig):
         super().__init__(config)
