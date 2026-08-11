@@ -4,8 +4,6 @@ import re
 from astrbot.core.message.components import (
     At,
     BaseMessageComponent,
-    Face,
-    Image,
     Plain,
     Reply,
 )
@@ -47,10 +45,10 @@ class AtStep(BaseStep):
             if not isinstance(seg, Plain):
                 continue
 
-            if self.cfg.at_str and nickname:
+            if (self.cfg.at_str or not qq) and nickname:
                 # 原地修改
                 seg.text = f"@{nickname} " + seg.text
-            else:
+            elif qq:
                 # 真 At：插在 Plain 前
                 chain.insert(i, At(qq=qq))
                 chain.insert(i + 1, Plain("\u200b"))
@@ -115,7 +113,7 @@ class AtStep(BaseStep):
         # ===== 2. 智能艾特 =====
         if not (
             self.cfg.at_prob > 0
-            and all(isinstance(c, Plain | Image | Face | At | Reply) for c in ctx.chain)
+            and all(isinstance(c, Plain | At | Reply) for c in ctx.chain)
         ):
             return StepResult()
 
