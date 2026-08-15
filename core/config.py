@@ -10,7 +10,7 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
-from astrbot.core.utils.astrbot_path import get_astrbot_data_path
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 
 class ConfigNode:
@@ -215,9 +215,7 @@ class SplitConfig(ConfigNode):
             self.tail_punc_re = None
         # 停顿时间范围
         try:
-            self.min_delay, self.max_delay = map(
-                float, self.delay_scope_str.split("~")
-            )
+            self.min_delay, self.max_delay = map(float, self.delay_scope_str.split("~"))
         except Exception:
             self.min_delay, self.max_delay = 1, 20
 
@@ -275,4 +273,4 @@ class PluginConfig(ConfigNode):
         super().__init__(cfg)
         self.context = context
         self.admins_id: list[str] = context.get_config().get("admins_id", [])
-        self.data_dir = Path(get_astrbot_data_path()) / self._plugin_name
+        self.data_dir = Path(get_astrbot_plugin_data_path()) / self._plugin_name
