@@ -186,9 +186,6 @@ class ForwardStep(BaseStep):
                     for component in ctx.chain
                     if not isinstance(component, Reply)
                 ]
-                if not content:
-                    ctx.chain.clear()
-                    return StepResult(msg="过滤 Reply 后无有效转发内容，已跳过合并转发")
                 nodes = Nodes([])
                 name = await self._ensure_node_name(ctx.event)
                 uin = str(ctx.event.get_self_id() or ctx.bid)
