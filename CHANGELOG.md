@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v2.2.7
+
+错误修复：
+
+- SplitStep._split_chain() 必填参数 max_count 改为选填，避免错字模拟逻辑调用时报错
+- 从 aiocqhttp 转发的消息中过滤Reply组件，并跳过创建空的转发节点。
+
 ## v2.2.6
 
 - 修复错误的插件数据目录
