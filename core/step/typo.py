@@ -377,7 +377,7 @@ class TypoStep(BaseStep):
         from .split import SplitStep
 
         split_step = SplitStep(self.plugin_config)
-        preview_segments = split_step._split_chain(preview_chain)
+        preview_segments = split_step._split_chain(preview_chain, self.plugin_config.split.max_count)
         if len(preview_segments) <= 1:
             return False
 
