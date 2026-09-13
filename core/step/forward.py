@@ -2,6 +2,7 @@ from astrbot.core.message.components import (
     Node,
     Nodes,
     Plain,
+    Reply,
 )
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
@@ -180,10 +181,17 @@ class ForwardStep(BaseStep):
             platform_name = ctx.event.get_platform_name()
 
             if platform_name == "aiocqhttp":
+                content = [
+                    component
+                    for component in ctx.chain
+                    if not isinstance(component, Reply)
+                ]
+                if not content:
+                    ctx.chain.clear()
+                    return StepResult(msg="过滤 Reply 后无有效转发内容，已跳过合并转发")
                 nodes = Nodes([])
                 name = await self._ensure_node_name(ctx.event)
                 uin = str(ctx.event.get_self_id() or ctx.bid)
-                content = list(ctx.chain.copy())
                 nodes.nodes.append(Node(uin=uin, name=name, content=content))
                 ctx.chain[:] = [nodes]
                 return StepResult(msg="已将消息转换为转发节点")
