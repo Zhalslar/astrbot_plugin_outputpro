@@ -414,7 +414,7 @@ class SplitStep(BaseStep):
         1. 优先使用语义切点（is_split）
         2. 按累计长度均分选择切点
         """
-        max_count = max_count or self.cfg.max_count
+        max_count = self.cfg.max_count if max_count is None else max_count
         split_idx = [i for i, t in enumerate(tokens) if t.is_split and t.text.strip()]
         if not split_idx:
             return set()
