@@ -162,6 +162,10 @@ class ReplaceConfig(ConfigNode):
     default_new_word: str
 
 
+class FaceConfig(ConfigNode):
+    custom_mapping: list[str]
+
+
 class TTSConfig(ConfigNode):
     group_id: str
     character_id: str
@@ -259,6 +263,7 @@ class PluginConfig(ConfigNode):
     at: AtConfig
     clean: CleanConfig
     replace: ReplaceConfig
+    face: FaceConfig
     typo: TypoConfig
     tts: TTSConfig
     t2i: T2IConfig

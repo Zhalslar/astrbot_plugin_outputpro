@@ -3,6 +3,7 @@ from .base import BaseStep
 from .block import BlockStep
 from .clean import CleanStep
 from .error import ErrorStep
+from .face import FaceStep
 from .forward import ForwardStep
 from .recall import RecallStep
 from .replace import ReplaceStep
@@ -17,6 +18,7 @@ __all__ = [
     "ForwardStep",
     "AtStep",
     "CleanStep",
+    "FaceStep",
     "RecallStep",
     "SplitStep",
     "SummaryStep",

@@ -201,7 +201,7 @@ class TextTokenizer:
             m = self.pattern.match(text, i)
             if m:
                 seg = m.group()
-                if seg.strip() == "":
+                if seg.strip() == "" and (seg.splitlines() == [seg] or not buf.strip()):
                     buf += seg
                     i += len(seg)
                     continue
