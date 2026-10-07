@@ -201,7 +201,6 @@ class TextTokenizer:
             m = self.pattern.match(text, i)
             if m:
                 seg = m.group()
-                # splitlines 同时识别 \n、\r 和 Unicode 换行；水平空白不产生切点。
                 if seg.strip() == "" and (seg.splitlines() == [seg] or not buf.strip()):
                     buf += seg
                     i += len(seg)
