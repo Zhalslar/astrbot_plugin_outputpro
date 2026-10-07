@@ -57,6 +57,7 @@ class StepName(str, Enum):
     AT = "at"
     CLEAN = "clean"
     REPLACE = "replace"
+    FACE = "face"
     TYPO = "typo"
     TTS = "tts"
     T2I = "t2i"
