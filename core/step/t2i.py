@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from astrbot import logger
+from astrbot.api import logger
 from astrbot.core.message.components import Image, Plain
 
 from ..config import PluginConfig
